@@ -135,7 +135,7 @@ class Population:
 
     def first(self, id_manager, innovation_manager):
         for _ in range(config["population_size"]):
-            genome = Genome(id_manager).create(innovation_manager)
+            genome = Genome(id_manager).create(id_manager, innovation_manager)
             self.genomes[genome.id] = genome
 
     def evaluate_single_genome(self, id_manager, genome):
@@ -347,6 +347,7 @@ class Genome:
 
     def attempt_connections(self, id_manager, innovation_manager, from_layer, to_layer, attempts=1):
         for _ in range(attempts):
+            # randomly select 2 neurons and look for the couple in connections dict
             # if connection doesn't already exist:
             ConnectionGene(id_manager, innovation_manager, from_layer, to_layer)
     ##########################################        
@@ -459,7 +460,7 @@ class ConnectionGene:
         pass
 
 class NeuronGene:
-    def __init__(self, id_tracker, layer):
+    def __init__(self, id_manager, layer):
         self.id = id_manager.get_new_id()
         self.layer = layer
         self.activation = config["default_activation"]
@@ -467,7 +468,8 @@ class NeuronGene:
         self.enabled = True
 
 class NeuralNetwork:
-    def __init__(self, genome):
+    def __init__(self, id_manager, genome):
+        self.id = id_manager.get_new_id()
         self.genome = genome
         self.neurons = []
         self.input_neurons = []
