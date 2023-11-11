@@ -108,7 +108,7 @@ class ActivationFunctions:
     def abs(x):
         return np.abs(x)
 
-class InnovationTracker:
+class InnovationManager:
     def __init__(self):
         self.current_innovation = 0
 
@@ -133,9 +133,10 @@ class Population:
         self.max_fitness = 0  # Highest raw fitness in the population
         self.best_genome = 0  # Genome with the highest raw fitness
 
-    def create(self, id_manager, innovation_tracker):
+    def first(self, id_manager, innovation_manager):
         for _ in range(config["population_size"]):
-            self.genomes.update(Genome.create(id_manager, innovation_tracker))
+            genome = Genome(id_manager).create(innovation_manager)
+            self.genomes[genome.id] = genome
 
     def evaluate_single_genome(self, genome):
         environment = gym.make("BipedalWalker-v3", hardcore=True)
@@ -158,7 +159,7 @@ class Population:
     def evaluate(self):
         # Create a multiprocessing pool
         #with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-        with multiprocessing.Pool() as pool:
+        with multiprocessing.Pool(config["multiproc_cpu_count"]) as pool:
             # Parallelize the evaluation of genomes
             fitness_scores = pool.map(self.evaluate_single_genome, self.genomes)
 
@@ -208,19 +209,16 @@ class Population:
 
     def assess(self):
         total_fitness = 0
-        max_fitness = float('-inf')
-        best_genome = None
+        self.max_fitness = 0
+        self.best_genome = None
 
-        # Iterate through all genomes to find the best one and calculate total fitness
         for genome in self.genomes:
             total_fitness += genome.fitness
-            if genome.fitness > max_fitness:
-                max_fitness = genome.fitness
-                best_genome = genome
+            if genome.fitness > self.max_fitness:
+                self.max_fitness = genome.fitness
+                self.best_genome = genome
 
         # Update best and average fitness in the population
-        self.max_fitness = max_fitness
-        self.best_genome = best_genome
         self.average_fitness = total_fitness / len(self.genomes) if self.genomes else 0
 
         # Assess each species
@@ -232,16 +230,16 @@ class Population:
             species.genomes.sort(key=lambda x: x.fitness, reverse=True)
             species.elites = species.genomes[:config["elites_per_species"]] if species.genomes else []
 
-    def survive_and_reproduce(self, innovation_tracker):
+    def survive_and_reproduce(self, innovation_manager):
         next_gen_genomes = []
         for spec in self.species:
             next_gen_genomes.extend(spec.elites[:config["elites_per_species"]]) # add elites to next gen
             spec.cull(keep_best=True) # order by fitness and keep only a quote
             offspring_count = self.get_offspring_count(spec)
-            offspring = spec.produce_offspring(innovation_tracker, offspring_count)
+            offspring = spec.produce_offspring(innovation_manager, offspring_count)
             next_gen_genomes.extend(offspring)
         if config["allow_interspecies_mating"]:
-            interspecies_offspring = self.produce_interspecies_offspring(innovation_tracker)
+            interspecies_offspring = self.produce_interspecies_offspring(innovation_manager)
             next_gen_genomes.extend(interspecies_offspring)
         while len(next_gen_genomes) < config["population_size"]:
             next_gen_genomes.append(self.random_species().produce_offspring(1))
@@ -274,12 +272,12 @@ class Population:
         with open(file_path, "rb") as file:
             self.genomes = pickle.load(file)
 
-    def evolve(self, id_manager, innovation_tracker):
+    def evolve(self, id_manager, innovation_manager):
         self.evaluate()
         self.speciate(id_manager)
         self.prune_species()
         self.assess()
-        self.survive_and_reproduce(id_manager, innovation_tracker)
+        self.survive_and_reproduce(id_manager, innovation_manager)
 
 class Species:
     def __init__(self):
@@ -325,7 +323,8 @@ class Species:
         return distance < config["compatibility_threshold"]
 
 class Genome:
-    def __init__(self):
+    def __init__(self, id_manager):
+        self.id = id_manager.get_new_id()
         self.neuron_genes = {}
         self.connection_genes = {}
         self.network = None
@@ -333,23 +332,22 @@ class Genome:
         self.fitness = 0
         self.shared_fitness = 0
 
-    def create(self, innovation_tracker):
-        input_neurons = self.add_neurons("input", config["input_neurons"])
-        output_neurons = self.add_neurons("output", config["output_neurons"])
-        self.neuron_genes = input_neurons | output_neurons
-
+    def create(self, id_manager, innovation_manager):
+        self.add_neurons(id_manager, "input", config["input_neurons"])
+        self.add_neurons(id_manager, "output", config["output_neurons"])
         max_possible_conn = config["input_neurons"] * config["output_neurons"]
-        self.connection_genes = self.attempt_connections(innovation_tracker, "input", "output", int(config["initial_conn_quota"] * max_possible_conn))
+        self.attempt_connections(id_manager, innovation_manager, "input", "output", int(config["initial_conn_quota"] * max_possible_conn))
+        return self
 
-    def add_neurons(self, layer, count):
+    def add_neurons(self, id_manager, layer, count):
         for _ in range(count):
-            NeuronGene(layer)
+            NeuronGene(id_manager, layer)
 
-    def attempt_connections(self, innovation_tracker, from_layer, to_layer, attempts=1):
+    def attempt_connections(self, id_manager, innovation_manager, from_layer, to_layer, attempts=1):
         for _ in range(attempts):
             # if connection doesn't already exist:
-            ConnectionGene(innovation_tracker, from_layer, to_layer)
-        
+            ConnectionGene(id_manager, innovation_manager, from_layer, to_layer)
+    ##########################################        
     def mutate(self):
         if random.random() < config["gene_add_chance"]:
             self.attempt_connections(1)
@@ -381,8 +379,6 @@ class Genome:
 
     def mutate_neuron_toggle(self):
         pass
-
-    ##########################################
 
     def build_network(self):
         if self.network_needs_rebuild:
@@ -449,8 +445,9 @@ class Genome:
         return distance
 
 class ConnectionGene:
-    def __init__(self, innovation_tracker, from_neuron, to_neuron):
-        self.innovation_number = innovation_tracker.get_new_innovation()
+    def __init__(self, id_manager, innovation_manager, from_neuron, to_neuron):
+        self.id = id_manager.get_new_id()
+        self.innovation_number = innovation_manager.get_new_innovation()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
         self.weight = 1
@@ -460,7 +457,8 @@ class ConnectionGene:
         pass
 
 class NeuronGene:
-    def __init__(self, layer):
+    def __init__(self, id_tracker, layer):
+        self.id = id_manager.get_new_id()
         self.layer = layer
         self.activation = config["default_activation"]
         self.bias = random.uniform(*config["bias_init_range"])
@@ -530,7 +528,6 @@ class NeuralNetwork:
         # Lookup the actual function in the ActivationFunctions class
         return getattr(ActivationFunctions, name)
 
-
     def compute_hidden_states(self, prev_hidden_states):
         current_hidden_states = {}
         # Calculate the state for each hidden neuron
@@ -583,15 +580,16 @@ class Visualization:
 
 def NEAT_run():
     id_manager = IdManager()
-    innovation_tracker = InnovationTracker()
-    population = Population.create(id_manager, innovation_tracker)
+    innovation_manager = Innovatio()
+    population = Population(id_manager)
+    population = population.first(id_manager, innovation_manager)
     visualizer = Visualization()
     species_data = []
     fitness_data = []
 
     for generation in range(config["generations"]):
     
-        population.evolve(id_manager, innovation_tracker)
+        population.evolve(id_manager, innovation_manager)
     
         species_data.append(len(population.species))
         fitness_data.append(population.max_fitness)
