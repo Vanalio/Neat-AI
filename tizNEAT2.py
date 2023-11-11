@@ -9,7 +9,7 @@ config = {
 
     "input_neurons": 24,
     "output_neurons": 4,
-    "initial_conn_quota": 0.3,
+    "initial_conn_attempts": 50,
     "refractory_factor": 0.25,
 
     "TESTING_EVOLUTION_INPUT": (
@@ -138,11 +138,11 @@ class Population:
             genome = Genome(id_manager).create(innovation_manager)
             self.genomes[genome.id] = genome
 
-    def evaluate_single_genome(self, genome):
+    def evaluate_single_genome(self, id_manager, genome):
         environment = gym.make("BipedalWalker-v3", hardcore=True)
         environment = gym.wrappers.TimeLimit(environment, max_episode_steps=1600, new_step_api=True)
 
-        neural_network = genome.build_network()
+        neural_network = genome.build_network(id_manager)
         observation = environment.reset()
         done = False
         total_reward = 0
@@ -180,7 +180,7 @@ class Population:
                     placed_in_species = True                  # and set is as assigned
                     break
             if not placed_in_species:
-                new_species = Species()               # create a new species for the genome
+                new_species = Species(id_manager)               # create a new species for the genome
                 new_species.add_genome(genome)        # add genome to it
                 self.species.append(new_species)      # add species to the list of species
 
@@ -230,7 +230,7 @@ class Population:
             species.genomes.sort(key=lambda x: x.fitness, reverse=True)
             species.elites = species.genomes[:config["elites_per_species"]] if species.genomes else []
 
-    def survive_and_reproduce(self, innovation_manager):
+    def survive_and_reproduce(self, id_manager, innovation_manager):
         next_gen_genomes = []
         for spec in self.species:
             next_gen_genomes.extend(spec.elites[:config["elites_per_species"]]) # add elites to next gen
@@ -280,7 +280,8 @@ class Population:
         self.survive_and_reproduce(id_manager, innovation_manager)
 
 class Species:
-    def __init__(self):
+    def __init__(self, id_manager):
+        self.id = id_manager.get_new_id()
         self.genomes = {}
         self.elites = {}
         self.representative = None
@@ -336,7 +337,8 @@ class Genome:
         self.add_neurons(id_manager, "input", config["input_neurons"])
         self.add_neurons(id_manager, "output", config["output_neurons"])
         max_possible_conn = config["input_neurons"] * config["output_neurons"]
-        self.attempt_connections(id_manager, innovation_manager, "input", "output", int(config["initial_conn_quota"] * max_possible_conn))
+        attempts = min(config["initial_conn_attempts"], max_possible_conn)
+        self.attempt_connections(id_manager, innovation_manager, "input", "output", attempts)
         return self
 
     def add_neurons(self, id_manager, layer, count):
@@ -348,7 +350,7 @@ class Genome:
             # if connection doesn't already exist:
             ConnectionGene(id_manager, innovation_manager, from_layer, to_layer)
     ##########################################        
-    def mutate(self):
+    def mutate(self, id_manager, innovation_manager):
         if random.random() < config["gene_add_chance"]:
             self.attempt_connections(1)
         if random.random() < config["neuron_add_chance"]:
@@ -580,7 +582,7 @@ class Visualization:
 
 def NEAT_run():
     id_manager = IdManager()
-    innovation_manager = Innovatio()
+    innovation_manager = InnovationManager()
     population = Population(id_manager)
     population = population.first(id_manager, innovation_manager)
     visualizer = Visualization()
