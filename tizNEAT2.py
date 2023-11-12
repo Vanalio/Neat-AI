@@ -1,5 +1,6 @@
-# implement and use a random selector functions for each class except population, like random_neuron, random_connection, random_gene, random_genome, random_species, random_network
-# check if at each new generation we are keeping somewhere any unneeded objects, like previous instance of genomes, species, networks, neurons, connections, genes, etc.
+# Implement and use useful "random select" and "copy" functions, like genome_instance.copy(), connectiongene_instance.copy() and Genomes.pick_random(), ConnectionGene.pick_random(), NeuronGene.pick_random(), InnovationManager.pick_random(), IdManager.pick_random() and so on...
+# check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
+# write the code for the "initialize_network" method of the NeuralNetwork class and all the other methods of the NeuralNetwork class
 
 import multiprocessing
 import random
@@ -497,91 +498,10 @@ class NeuralNetwork:
         self.initialize_network()
 
     def initialize_network(self):
-
-        self.neurons = {neuron.innovation_number: 0.0 for neuron in self.genome.neuron_genes}
-        self.input_neurons = [neuron for neuron in self.genome.neuron_genes if neuron.layer == "input"]
-        self.output_neurons = [neuron for neuron in self.genome.neuron_genes if neuron.layer == "output"]
-        self.connections = {gene.from_neuron: [] for gene in self.genome.connection_genes if gene.enabled}
-
-        for gene in self.genome.connection_genes:
-            if gene.enabled:
-                self.connections[gene.from_neuron].append((gene.to_neuron, gene.weight))
+        pass
 
     def forward_pass(self, inputs, num_timesteps):
-        # first hidden states to zero
-        hidden_states = {neuron.innovation_number: 0.0 for neuron in self.genome.neuron_genes if neuron.layer == "hidden"}
-
-        # Store the previous timestep's hidden states
-        prev_hidden_states = {neuron.innovation_number: 0.0 for neuron in self.genome.neuron_genes if neuron.layer == "hidden"}
-
-        for _ in range(num_timesteps):
-            # Update input neurons with current inputs
-            for i, neuron in enumerate(self.input_neurons):
-                hidden_states[neuron.innovation_number] = inputs[i]
-
-            # Compute new hidden states based on current inputs, recurrent connections, and self-connections
-            for neuron in self.hidden_neurons:
-                total_input = self.bias[neuron.innovation_number]
-                for input_neuron, weight in self.connections[neuron.innovation_number]:
-                    if input_neuron == neuron.innovation_number:  # Self-connection
-                        total_input += prev_hidden_states[neuron.innovation_number] * weight
-                    else:
-                        total_input += hidden_states[input_neuron] * weight
-
-                # Get the activation function from the NeuronGene
-                activation_function = self.get_activation_function(neuron.activation)
-                hidden_states[neuron.innovation_number] = activation_function(total_input)
-
-            # Update prev_hidden_states for the next timestep
-            prev_hidden_states.update(hidden_states)
-
-        # Compute outputs from output neurons
-        outputs = []
-        for neuron in self.output_neurons:
-            total_input = self.bias[neuron.innovation_number]
-            for input_neuron, weight in self.connections[neuron.innovation_number]:
-                total_input += hidden_states[input_neuron] * weight
-
-            activation_function = self.get_activation_function(neuron.activation)
-            outputs.append(activation_function(total_input))
-
-        return outputs
-
-    def get_activation_function(self, name):
-        # Lookup the actual function in the ActivationFunctions class
-        return getattr(ActivationFunctions, name)
-
-    def compute_hidden_states(self, prev_hidden_states):
-        current_hidden_states = {}
-        # Calculate the state for each hidden neuron
-        for neuron in self.hidden_neurons:
-            # Sum of inputs from input neurons and recurrent connections from hidden neurons
-            total_input = sum(
-                self.neurons[input_neuron] * weight
-                for input_neuron, weight in self.connections[neuron.innovation_number]
-            )
-            # Add recurrent input from previous time step
-            total_input += prev_hidden_states[neuron.innovation_number] * self.get_self_weight(neuron)
-            # Apply activation function
-            current_hidden_states[neuron.innovation_number] = self.activation_function(total_input)
-        return current_hidden_states
-
-    def compute_outputs(self, hidden_states):
-        outputs = []
-        # Calculate the output for each output neuron
-        for neuron in self.output_neurons:
-            total_input = sum(
-                hidden_states[input_neuron] * weight
-                for input_neuron, weight in self.connections[neuron.innovation_number]
-            )
-            # Apply activation function
-            outputs.append(self.activation_function(total_input))
-        return outputs
-
-    def get_self_weight(self, neuron):
-        # Return the weight of the self-connection for the neuron, if it exists
-        self_connection = next((conn for conn in self.connections[neuron.innovation_number] if conn[0] == neuron.innovation_number), None)
-        return self_connection[1] if self_connection else 0
+        pass
 
 class Visualization:
     def __init__(self):
@@ -605,8 +525,6 @@ class Visualization:
         pass
 
 def NEAT_run():
-    id_manager = IdManager()
-    innovation_manager = InnovationManager()
     population = Population(first=True)
     visualizer = Visualization()
     species_data = []
