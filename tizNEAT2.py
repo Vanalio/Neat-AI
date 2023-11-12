@@ -1,4 +1,4 @@
-# write the code for the "initialize_network" method of the NeuralNetwork class and all the other methods of the NeuralNetwork class
+# check code for the NeuralNetwork (RNN)
 # check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
 
 import multiprocessing
@@ -16,8 +16,8 @@ config = {
     "initial_conn_attempts": 15, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "refractory_factor": 0.33,
 
-    "generations": 200,
-    "population_size": 5000,
+    "generations": 10,
+    "population_size": 10,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -42,7 +42,8 @@ config = {
     "bias_init_range": (-2, 2),
 
     "activation_mutate_chance": 0.1,
-    "default_activation": "clipped_relu",
+    "default_hidden_activation": "clipped_relu",
+    "default_output_activation": "identity",
     "relu_clip_at": 1,
 
     "gene_add_chance": 0.02,
@@ -51,9 +52,9 @@ config = {
     "weight_mutate_factor": 0.5,
     "weight_init_range": (-2, 2),
 
-    "samples_per_batch": 10,
-    "sample_size_range": (120, 1200),
+    "parallelize": False,
     "parallelization": 6,
+
     "global_mutation_enable": False,
     "global_mutation_chance": 0.5,
     "population_save_interval": 10
@@ -64,12 +65,12 @@ class ActivationFunctions:
     @staticmethod
     def get_activation_functions():
         return [
-            "linear", "relu", "leaky_relu", "clipped_relu",
+            "identity", "relu", "leaky_relu", "clipped_relu",
             "tanh", "sigmoid", "softplus", "abs"
         ]
 
     @staticmethod
-    def linear(x):
+    def identity(x):
         return x
 
     @staticmethod
@@ -147,32 +148,50 @@ class Population:
             self.genomes[genome.id] = genome
 
     def evaluate_single_genome(self, genome):
-        environment = gym.make("BipedalWalker-v3", hardcore=True)
-        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=2000)
+        environment = gym.make("BipedalWalker-v3", hardcore=True, render_mode="human")
+        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=200)
 
         neural_network = genome.build_network()
-        observation = environment.reset()
+        for neuron_id, neuron in neural_network.neurons.items():
+            print(f"Neuron {neuron_id}, Layer: {neuron.layer}, Bias: {neuron.bias}")
+            for conn in neuron.input_connections:
+                print(f"  - Connection from {conn.from_neuron.id}, Weight: {conn.weight}")
+        observation_tuple = environment.reset()
+        observation = observation_tuple[0]  # Extract the array part of the tuple
+        #print("Observation size:", len(observation))
         done = False
         total_reward = 0
 
         while not done:
             outputs = neural_network.forward_pass(observation)
-            observation, reward, terminated, truncated, info = environment.step(outputs)
+            action = np.array(outputs[-1]).flatten()  # Flatten and convert to NumPy array
+            #print(action)
+            observation, reward, terminated, truncated, info = environment.step(action)  # Use 'action' here
             total_reward += reward
+            print("Tot. reward:", total_reward, "- Terminated:", terminated, "- Truncated:", truncated)
             done = terminated or truncated
 
         environment.close()
         return total_reward
 
     def evaluate(self):
+        if config["parallelize"]:
+            self.evaluate_parallel()
+        else:
+            self.evaluate_serial()
+    
+    def evaluate_serial(self):
+        fitness_scores = []
+        for genome in self.genomes.values():
+            fitness_scores.append(self.evaluate_single_genome(genome))
+
+    def evaluate_parallel(self):
+        fitness_scores = []
         # Create a multiprocessing pool
         #with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-
         with multiprocessing.Pool(config["parallelization"]) as pool:
             # Parallelize the evaluation of genomes
             fitness_scores = pool.map(self.evaluate_single_genome, self.genomes.values())
-
-
         # Assign fitness scores back to genomes
         for genome, fitness in zip(self.genomes.values(), fitness_scores):
             genome.fitness = fitness
@@ -574,7 +593,7 @@ class NeuronGene:
     def __init__(self, layer):
         self.id = IdManager.get_new_id()
         self.layer = layer
-        self.activation = config["default_activation"]
+        self.activation = self.activation = config["default_hidden_activation"] if self.layer == "hidden" else (config["default_output_activation"] if self.layer == "output" else "identity")
         self.bias = random.uniform(*config["bias_init_range"])
         self.enabled = True
 
@@ -606,18 +625,19 @@ class NeuralNetwork:
                     self.output_neurons.append(neuron)
 
         # Create Connections from ConnectionGenes
-        for conn_id, conn_gene in self.genome.connection_genes.items():
+        for _, conn_gene in self.genome.connection_genes.items():
             if conn_gene.enabled:
                 from_neuron = self.neurons[conn_gene.from_neuron]
                 to_neuron = self.neurons[conn_gene.to_neuron]
                 connection = Connection(from_neuron, to_neuron, conn_gene.weight)
+                print(f"Creating connection from neuron {conn_gene.from_neuron} to neuron {conn_gene.to_neuron} with weight {conn_gene.weight}")
                 to_neuron.add_input_connection(connection)
-
+        
     def forward_pass(self, inputs, num_timesteps=1):
         outputs = []
         saved_state = {neuron_id: 0 for neuron_id in self.neurons}  # Initial state
 
-        for t in range(num_timesteps):
+        for _ in range(num_timesteps):
             # Update input neurons with current inputs
             for i, neuron in enumerate(self.input_neurons):
                 neuron.value = inputs[i]
@@ -646,6 +666,7 @@ class Neuron:
 
     def add_input_connection(self, connection):
         self.input_connections.append(connection)
+        print(f"Added connection from neuron {connection.from_neuron.id} to neuron {self.id}")
 
     def calculate_activation(self, saved_state):
         refractory_factor = config["refractory_factor"]
