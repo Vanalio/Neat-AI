@@ -156,12 +156,12 @@ class Population:
         environment.close()
         return total_reward
 
-    def evaluate(self):
+    def evaluate(self, id_manager):
         # Create a multiprocessing pool
         #with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
         with multiprocessing.Pool(config["multiproc_cpu_count"]) as pool:
             # Parallelize the evaluation of genomes
-            fitness_scores = pool.map(self.evaluate_single_genome, self.genomes)
+            fitness_scores = pool.map(self.evaluate_single_genome(id_manager), self.genomes)
 
         # Assign fitness scores back to genomes
         for genome, fitness in zip(self.genomes, fitness_scores):
@@ -273,7 +273,7 @@ class Population:
             self.genomes = pickle.load(file)
 
     def evolve(self, id_manager, innovation_manager):
-        self.evaluate()
+        self.evaluate(id_manager)
         self.speciate(id_manager)
         self.prune_species()
         self.assess()
@@ -586,7 +586,7 @@ def NEAT_run():
     id_manager = IdManager()
     innovation_manager = InnovationManager()
     population = Population(id_manager)
-    population = population.first(id_manager, innovation_manager)
+    population.first(id_manager, innovation_manager)
     visualizer = Visualization()
     species_data = []
     fitness_data = []
