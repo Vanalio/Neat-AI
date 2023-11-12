@@ -1,6 +1,5 @@
-# Implement and use useful "random select" and "copy" functions, like genome_instance.copy(), connectiongene_instance.copy() and Genomes.pick_random(), ConnectionGene.pick_random(), NeuronGene.pick_random(), InnovationManager.pick_random(), IdManager.pick_random() and so on...
-# check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
 # write the code for the "initialize_network" method of the NeuralNetwork class and all the other methods of the NeuralNetwork class
+# check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
 
 import multiprocessing
 import random
@@ -12,36 +11,17 @@ import pickle
 config = {
 
     "input_neurons": 24,
+    "hidden_neurons": 1,
     "output_neurons": 4,
-    "initial_conn_attempts": 50,
+    "initial_conn_attempts": 15, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "refractory_factor": 0.25,
 
-    "TESTING_EVOLUTION_INPUT": (
-        (1.0, 2.0, 3.0, 4.0),
-        (-5.2, -4.2, -3.2, -2.2),
-        (50000.0, 50001.0, 50002, 50003.0),
-        (-1724.0, -1723.0, -1722.0, -1721.0),
-        (101.0, 102.0, 103.0, 104.0),
-        (1200000.0, 1200001.0, 1200002, 1200003.0, 1200004.0, 1200005.0, 1200006, 1200007.0)
-        ),
-    "TESTING_EVOLUTION_OUTPUT": (
-        (5.0, 6.0),
-        (-1.2, -0.2),
-        (50004.0, 50005.0),
-        (-1720.0, -1719.0),
-        (105.0, 106.0),
-        (1200008.0, 1200009.0)
-        ),
-    
-    "TESTING_REAL_INPUT": (31200, 31201),
-    "TESTING_REAL_OUTPUT": (31202, 31203),
-
-    "generations": 60,
+    "generations": 200,
     "population_size": 5000,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
-    "target_species": 50,
+    "target_species": 25,
 
     "compatibility_threshold": 10,
     "distance_adj_factor": 0.2,
@@ -53,7 +33,7 @@ config = {
     "allow_interspecies_mating": True,
     "interspecies_mating_count": 10,
 
-    "keep_best_percentage": 66,
+    "keep_best_percentage": 0.5,
 
     "neuron_add_chance": 0.01,
     "neuron_toggle_chance": 0.0075,
@@ -62,6 +42,8 @@ config = {
     "bias_init_range": (-2, 2),
 
     "activation_mutate_chance": 0.1,
+    "default_activation": "clipped_relu",
+    "relu_clip_at": 1,
 
     "gene_add_chance": 0.02,
     "gene_toggle_chance": 0.001,
@@ -69,8 +51,6 @@ config = {
     "weight_mutate_factor": 0.5,
     "weight_init_range": (-2, 2),
 
-    "default_activation": "clipped_relu",
-    "relu_clip_at": 1,
     "samples_per_batch": 10,
     "sample_size_range": (120, 1200),
     "parallelization": 6,
@@ -80,6 +60,14 @@ config = {
 }
 
 class ActivationFunctions:
+
+    @staticmethod
+    def get_activation_functions():
+        return [
+            "linear", "relu", "leaky_relu", "clipped_relu",
+            "tanh", "sigmoid", "softplus", "abs"
+        ]
+
     @staticmethod
     def linear(x):
         return x
@@ -337,7 +325,11 @@ class Species:
         return offspring
 
     def random_genome(self):
-        return random.choice(list(self.genomes.values()))
+        if not self.genomes:
+            raise ValueError("No genomes in the species to copy from.")
+
+        random_genome = random.choice(list(self.genomes.values()))
+        return random_genome.copy()  # This will now use the modified copy method
 
     def is_same_species(self, genome):
         distance = genome.calculate_genetic_distance(self.representative)
@@ -356,52 +348,137 @@ class Genome:
     def create(self):
         self.add_neurons("input", config["input_neurons"])
         self.add_neurons("output", config["output_neurons"])
-        max_possible_conn = config["input_neurons"] * config["output_neurons"]
+        self.add_neurons("hidden", config["hidden_neurons"])
+        max_possible_conn = config["hidden_neurons"] * (config["input_neurons"] + config["hidden_neurons"] + config["output_neurons"])
         attempts = min(config["initial_conn_attempts"], max_possible_conn)
-        self.attempt_connections("input", "output", attempts)
+        self.attempt_connections(from_layer=None, to_layer=None, attempts)
         return self
+
+    def copy(self):
+        new_genome = Genome()  # Creates a new genome with a new ID
+        new_genome.network_needs_rebuild = self.network_needs_rebuild
+        new_genome.fitness = self.fitness
+        new_genome.shared_fitness = self.shared_fitness
+
+        # Copying all neuron genes
+        for neuron_id, neuron_gene in self.neuron_genes.items():
+            new_genome.neuron_genes[neuron_id] = neuron_gene.copy()
+
+        # Copying all connection genes
+        for conn_id, conn_gene in self.connection_genes.items():
+            new_genome.connection_genes[conn_id] = conn_gene.copy()
+
+        return new_genome
 
     def add_neurons(self, layer, count):
         for _ in range(count):
-            NeuronGene(layer)
+            # Create a new neuron and add it to the neuron_genes dictionary
+            new_neuron = NeuronGene(layer)
+            self.neuron_genes[new_neuron.id] = new_neuron
 
-    def attempt_connections(self, from_layer, to_layer, attempts=1):
+    def attempt_connections(self, from_layer=None, to_layer=None, attempts=1):
         for _ in range(attempts):
-            # randomly select 2 neurons and look for the couple in connections dict
-            # if connection doesn't already exist:
-            ConnectionGene(from_layer, to_layer)
-    ##########################################        
+            from_neurons = []
+            to_neurons = []
+
+            if from_layer and to_layer:
+                # Use the provided layers
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer]
+            else:
+                # Randomly select layers based on architecture rules
+                from_layers = ['input', 'hidden']
+                from_layer = random.choice(from_layers)
+                if from_layer == 'input':
+                    to_layer = 'hidden'
+                elif from_layer == 'hidden':
+                    to_layer = random.choice(['hidden', 'output'])
+                
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer]
+
+            # Check if there are neurons available for connection
+            if not from_neurons or not to_neurons:
+                continue
+
+            # Randomly select from neuron and to neuron
+            from_neuron = random.choice(from_neurons)
+            to_neuron = random.choice(to_neurons)
+
+            # Check if the connection already exists
+            existing_connection = any(
+                conn.from_neuron == from_neuron.id and conn.to_neuron == to_neuron.id
+                for conn in self.connection_genes.values()
+            )
+
+            # Create connection if it doesn't exist
+            if not existing_connection:
+                new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
+                self.connection_genes[new_connection.id] = new_connection
+
+    def copy(self):
+        pass
+       
     def mutate(self):
         if random.random() < config["gene_add_chance"]:
             self.attempt_connections()
+
         if random.random() < config["neuron_add_chance"]:
             self.add_neurons("hidden", 1)
+
         if random.random() < config["weight_mutate_chance"]:
             self.mutate_weight()
+
         if random.random() < config["bias_mutate_chance"]:
             self.mutate_bias()
+
         if random.random() < config["activation_mutate_chance"]:
             self.mutate_activation_function()
+
         if random.random() < config["gene_toggle_chance"]:
             self.mutate_gene_toggle()
+
         if random.random() < config["neuron_toggle_chance"]:
             self.mutate_neuron_toggle()
+
         self.network_needs_rebuild = True
 
     def mutate_weight(self):
-        pass
+        for conn_gene in self.connection_genes.values():
+            if random.random() < config["weight_mutate_factor"]:
+                perturb = random.uniform(-1, 1) * config["weight_mutate_factor"]
+                conn_gene.weight += perturb
+            else:
+                conn_gene.weight = random.uniform(*config["weight_init_range"])
+
 
     def mutate_bias(self):
-        pass
+        for neuron_gene in self.neuron_genes.values():
+            if random.random() < config["bias_mutate_chance"]:
+                perturb = random.uniform(-1, 1) * config["bias_mutate_factor"]
+                neuron_gene.bias += perturb
+            else:
+                neuron_gene.bias = random.uniform(*config["bias_init_range"])
+
 
     def mutate_activation_function(self):
-        pass
+        available_functions = ActivationFunctions.get_activation_functions()
+
+        for neuron_gene in self.neuron_genes.values():
+            if random.random() < config["activation_mutate_chance"]:
+                neuron_gene.activation = random.choice(available_functions)
+
 
     def mutate_gene_toggle(self):
-        pass
+        for conn_gene in self.connection_genes.values():
+            if random.random() < config["gene_toggle_chance"]:
+                conn_gene.enabled = not conn_gene.enabled
+
 
     def mutate_neuron_toggle(self):
-        pass
+        for neuron_gene in self.neuron_genes.values():
+            if random.random() < config["neuron_toggle_chance"]:
+                neuron_gene.enabled = not neuron_gene.enabled
 
     def build_network(self):
         if self.network_needs_rebuild:
@@ -409,31 +486,42 @@ class Genome:
             self.network_needs_rebuild = False
         return self.network
 
-    def crossover(self, other_genome):
-        offspring = Genome()
+def crossover(self, other_genome):
+    offspring = Genome()
 
-        genes1 = {gene.innovation_number: gene for gene in self.connection_genes}
-        genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes}
+    genes1 = {gene.innovation_number: gene for gene in self.connection_genes}
+    genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes}
 
-        all_innovations = set(genes1.keys()) | set(genes2.keys())
+    all_innovations = set(genes1.keys()) | set(genes2.keys())
 
-        for innovation_number in all_innovations:
-            gene1 = genes1.get(innovation_number)
-            gene2 = genes2.get(innovation_number)
+    # Determine the more fit parent, or None if they have equal fitness
+    more_fit_parent = None
+    if self.fitness > other_genome.fitness:
+        more_fit_parent = self
+    elif self.fitness < other_genome.fitness:
+        more_fit_parent = other_genome
 
-            if gene1 and gene2:
+    for innovation_number in all_innovations:
+        gene1 = genes1.get(innovation_number)
+        gene2 = genes2.get(innovation_number)
 
-                offspring_gene = random.choice([gene1, gene2]).copy()
-            elif gene1:
+        offspring_gene = None
+        if gene1 and gene2:  # Matching genes
+            offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+        elif gene1 or gene2:  # Disjoint or excess genes
+            if more_fit_parent:
+                parent_gene = genes1.get(innovation_number) if more_fit_parent == self else genes2.get(innovation_number)
+                if parent_gene:
+                    offspring_gene = parent_gene.copy(retain_innovation_number=True)
+            else:  # Fitness is equal, choose randomly
+                parent_gene = gene1 if gene1 else gene2
+                offspring_gene = parent_gene.copy(retain_innovation_number=True)
 
-                offspring_gene = gene1.copy()
-            elif gene2:
+        if offspring_gene:
+            offspring.connection_genes[offspring_gene.id] = offspring_gene
 
-                offspring_gene = gene2.copy()
+    return offspring
 
-            offspring.connection_genes.append(offspring_gene)
-
-        return offspring
 
     def calculate_genetic_distance(self, other_genome):
 
@@ -473,11 +561,15 @@ class ConnectionGene:
         self.innovation_number = InnovationManager.get_new_innovation_number()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
-        self.weight = 1
+        self.weight = random.uniform(*config["weight_init_range"])
         self.enabled = True
 
-    def copy(self):
-        pass
+    def copy(self, retain_innovation_number=True):
+        new_gene = ConnectionGene(self.from_neuron, self.to_neuron)
+        new_gene.weight = self.weight
+        new_gene.enabled = self.enabled
+        new_gene.innovation_number = self.innovation_number if retain_innovation_number else InnovationManager.get_new_innovation_number()
+        return new_gene
 
 class NeuronGene:
     def __init__(self, layer):
@@ -486,6 +578,13 @@ class NeuronGene:
         self.activation = config["default_activation"]
         self.bias = random.uniform(*config["bias_init_range"])
         self.enabled = True
+
+    def copy(self):
+        new_gene = NeuronGene(self.layer)
+        new_gene.activation = self.activation
+        new_gene.bias = self.bias
+        new_gene.enabled = self.enabled
+        return new_gene
 
 class NeuralNetwork:
     def __init__(self, genome):
