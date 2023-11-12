@@ -1,9 +1,12 @@
-import random
-import pickle
+# implement and use a random selector functions for each class except population, like random_neuron, random_connection, random_gene, random_genome, random_species, random_network
+# check if at each new generation we are keeping somewhere any unneeded objects, like previous instance of genomes, species, networks, neurons, connections, genes, etc.
+
 import multiprocessing
+import random
 import numpy as np
 import matplotlib.pyplot as plt
 import gym
+import pickle
 
 config = {
 
@@ -69,7 +72,7 @@ config = {
     "relu_clip_at": 1,
     "samples_per_batch": 10,
     "sample_size_range": (120, 1200),
-    "multiproc_cpu_count": 6,
+    "parallelization": 6,
     "global_mutation_enable": False,
     "global_mutation_chance": 0.5,
     "population_save_interval": 10
@@ -108,41 +111,57 @@ class ActivationFunctions:
     def abs(x):
         return np.abs(x)
 
-class InnovationManager:
-    def __init__(self):
-        self.current_innovation = 0
-
-    def get_new_innovation(self):
-        self.current_innovation += 1
-        return self.current_innovation
-
 class IdManager:
-    def __init__(self):
-        self.current_id = 0
+    _instance = None
 
-    def get_new_id(self):
-        self.current_id += 1
-        return self.current_id
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(IdManager, cls).__new__(cls, *args, **kwargs)
+            cls._instance.current_id = 0
+        return cls._instance
+
+    @staticmethod
+    def get_new_id():
+        instance = IdManager()
+        instance.current_id += 1
+        return instance.current_id
+
+class InnovationManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(InnovationManager, cls).__new__(cls, *args, **kwargs)
+            cls._instance.current_innovation = 0
+        return cls._instance
+
+    @staticmethod
+    def get_new_innovation_number():
+        instance = InnovationManager()
+        instance.current_innovation += 1
+        return instance.current_innovation
 
 class Population:
-    def __init__(self, id_manager):
-        self.id = id_manager.get_new_id()
+    def __init__(self, first=False):
+        self.id = IdManager.get_new_id()
         self.genomes = {}
         self.species = {}
         self.average_fitness = 0
-        self.max_fitness = 0  # Highest raw fitness in the population
-        self.best_genome = 0  # Genome with the highest raw fitness
+        self.max_fitness = 0
+        self.best_genome = 0
+        if first:
+            self._first_population()
 
-    def first(self, id_manager, innovation_manager):
+    def _first_population(self):
         for _ in range(config["population_size"]):
-            genome = Genome(id_manager).create(id_manager, innovation_manager)
+            genome = Genome().create()
             self.genomes[genome.id] = genome
 
-    def evaluate_single_genome(self, id_manager, genome):
+    def evaluate_single_genome(self, genome):
         environment = gym.make("BipedalWalker-v3", hardcore=True)
         environment = gym.wrappers.TimeLimit(environment, max_episode_steps=1600, new_step_api=True)
 
-        neural_network = genome.build_network(id_manager)
+        neural_network = genome.build_network()
         observation = environment.reset()
         done = False
         total_reward = 0
@@ -156,12 +175,12 @@ class Population:
         environment.close()
         return total_reward
 
-    def evaluate(self, id_manager):
+    def evaluate(self):
         # Create a multiprocessing pool
         #with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-        with multiprocessing.Pool(config["multiproc_cpu_count"]) as pool:
+        with multiprocessing.Pool(config["parallelization"]) as pool:
             # Parallelize the evaluation of genomes
-            fitness_scores = pool.map(self.evaluate_single_genome(id_manager), self.genomes)
+            fitness_scores = pool.map(self.evaluate_single_genome(), self.genomes)
 
         # Assign fitness scores back to genomes
         for genome, fitness in zip(self.genomes, fitness_scores):
@@ -169,7 +188,7 @@ class Population:
 
     ####################################################################
 
-    def speciate(self, id_manager):  # add id to species # FIXME #
+    def speciate(self):  # add id to species # FIXME #
 
         self.species = {}
         for genome in self.genomes:
@@ -180,7 +199,7 @@ class Population:
                     placed_in_species = True                  # and set is as assigned
                     break
             if not placed_in_species:
-                new_species = Species(id_manager)               # create a new species for the genome
+                new_species = Species()               # create a new species for the genome
                 new_species.add_genome(genome)        # add genome to it
                 self.species.append(new_species)      # add species to the list of species
 
@@ -230,16 +249,16 @@ class Population:
             species.genomes.sort(key=lambda x: x.fitness, reverse=True)
             species.elites = species.genomes[:config["elites_per_species"]] if species.genomes else []
 
-    def survive_and_reproduce(self, id_manager, innovation_manager):
+    def survive_and_reproduce(self):
         next_gen_genomes = []
         for spec in self.species:
             next_gen_genomes.extend(spec.elites[:config["elites_per_species"]]) # add elites to next gen
             spec.cull(keep_best=True) # order by fitness and keep only a quote
             offspring_count = self.get_offspring_count(spec)
-            offspring = spec.produce_offspring(innovation_manager, offspring_count)
+            offspring = spec.produce_offspring(offspring_count)
             next_gen_genomes.extend(offspring)
         if config["allow_interspecies_mating"]:
-            interspecies_offspring = self.produce_interspecies_offspring(innovation_manager)
+            interspecies_offspring = self.produce_interspecies_offspring()
             next_gen_genomes.extend(interspecies_offspring)
         while len(next_gen_genomes) < config["population_size"]:
             next_gen_genomes.append(self.random_species().produce_offspring(1))
@@ -272,16 +291,16 @@ class Population:
         with open(file_path, "rb") as file:
             self.genomes = pickle.load(file)
 
-    def evolve(self, id_manager, innovation_manager):
-        self.evaluate(id_manager)
-        self.speciate(id_manager)
+    def evolve(self):
+        self.evaluate()
+        self.speciate()
         self.prune_species()
         self.assess()
-        self.survive_and_reproduce(id_manager, innovation_manager)
+        self.survive_and_reproduce()
 
 class Species:
-    def __init__(self, id_manager):
-        self.id = id_manager.get_new_id()
+    def __init__(self):
+        self.id = IdManager.get_new_id()
         self.genomes = {}
         self.elites = {}
         self.representative = None
@@ -324,8 +343,8 @@ class Species:
         return distance < config["compatibility_threshold"]
 
 class Genome:
-    def __init__(self, id_manager):
-        self.id = id_manager.get_new_id()
+    def __init__(self):
+        self.id = IdManager.get_new_id()
         self.neuron_genes = {}
         self.connection_genes = {}
         self.network = None
@@ -333,25 +352,25 @@ class Genome:
         self.fitness = 0
         self.shared_fitness = 0
 
-    def create(self, id_manager, innovation_manager):
-        self.add_neurons(id_manager, "input", config["input_neurons"])
-        self.add_neurons(id_manager, "output", config["output_neurons"])
+    def create(self):
+        self.add_neurons("input", config["input_neurons"])
+        self.add_neurons("output", config["output_neurons"])
         max_possible_conn = config["input_neurons"] * config["output_neurons"]
         attempts = min(config["initial_conn_attempts"], max_possible_conn)
-        self.attempt_connections(id_manager, innovation_manager, "input", "output", attempts)
+        self.attempt_connections(innovation_manager, "input", "output", attempts)
         return self
 
-    def add_neurons(self, id_manager, layer, count):
+    def add_neurons(self, layer, count):
         for _ in range(count):
-            NeuronGene(id_manager, layer)
+            NeuronGene(layer)
 
-    def attempt_connections(self, id_manager, innovation_manager, from_layer, to_layer, attempts=1):
+    def attempt_connections(self, from_layer, to_layer, attempts=1):
         for _ in range(attempts):
             # randomly select 2 neurons and look for the couple in connections dict
             # if connection doesn't already exist:
-            ConnectionGene(id_manager, innovation_manager, from_layer, to_layer)
+            ConnectionGene(from_layer, to_layer)
     ##########################################        
-    def mutate(self, id_manager, innovation_manager):
+    def mutate(self):
         if random.random() < config["gene_add_chance"]:
             self.attempt_connections(1)
         if random.random() < config["neuron_add_chance"]:
@@ -448,9 +467,9 @@ class Genome:
         return distance
 
 class ConnectionGene:
-    def __init__(self, id_manager, innovation_manager, from_neuron, to_neuron):
-        self.id = id_manager.get_new_id()
-        self.innovation_number = innovation_manager.get_new_innovation()
+    def __init__(self, from_neuron, to_neuron):
+        self.id = IdManager.get_new_id()
+        self.innovation_number = InnovationManager.get_new_innovation_number()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
         self.weight = 1
@@ -460,16 +479,16 @@ class ConnectionGene:
         pass
 
 class NeuronGene:
-    def __init__(self, id_manager, layer):
-        self.id = id_manager.get_new_id()
+    def __init__(self, layer):
+        self.id = IdManager.get_new_id()
         self.layer = layer
         self.activation = config["default_activation"]
         self.bias = random.uniform(*config["bias_init_range"])
         self.enabled = True
 
 class NeuralNetwork:
-    def __init__(self, id_manager, genome):
-        self.id = id_manager.get_new_id()
+    def __init__(self, genome):
+        self.id = IdManager.get_new_id()
         self.genome = genome
         self.neurons = []
         self.input_neurons = []
@@ -489,7 +508,7 @@ class NeuralNetwork:
                 self.connections[gene.from_neuron].append((gene.to_neuron, gene.weight))
 
     def forward_pass(self, inputs, num_timesteps):
-        # Initialize hidden states to zero
+        # first hidden states to zero
         hidden_states = {neuron.innovation_number: 0.0 for neuron in self.genome.neuron_genes if neuron.layer == "hidden"}
 
         # Store the previous timestep's hidden states
@@ -565,6 +584,7 @@ class NeuralNetwork:
         return self_connection[1] if self_connection else 0
 
 class Visualization:
+    self.id = IdManager.get_new_id()
     def plot_species_count(self, data):
         plt.plot(data)
         plt.title("Species Count")
@@ -585,15 +605,14 @@ class Visualization:
 def NEAT_run():
     id_manager = IdManager()
     innovation_manager = InnovationManager()
-    population = Population(id_manager)
-    population.first(id_manager, innovation_manager)
+    population = Population(first=True)
     visualizer = Visualization()
     species_data = []
     fitness_data = []
 
     for generation in range(config["generations"]):
     
-        population.evolve(id_manager, innovation_manager)
+        population.evolve()
     
         species_data.append(len(population.species))
         fitness_data.append(population.max_fitness)
