@@ -351,7 +351,7 @@ class Genome:
         self.add_neurons("hidden", config["hidden_neurons"])
         max_possible_conn = config["hidden_neurons"] * (config["input_neurons"] + config["hidden_neurons"] + config["output_neurons"])
         attempts = min(config["initial_conn_attempts"], max_possible_conn)
-        self.attempt_connections(from_layer=None, to_layer=None, attempts)
+        self.attempt_connections(from_layer=None, to_layer=None, attempts=attempts)
         return self
 
     def copy(self):
@@ -486,42 +486,41 @@ class Genome:
             self.network_needs_rebuild = False
         return self.network
 
-def crossover(self, other_genome):
-    offspring = Genome()
+    def crossover(self, other_genome):
+        offspring = Genome()
 
-    genes1 = {gene.innovation_number: gene for gene in self.connection_genes}
-    genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes}
+        genes1 = {gene.innovation_number: gene for gene in self.connection_genes}
+        genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes}
 
-    all_innovations = set(genes1.keys()) | set(genes2.keys())
+        all_innovations = set(genes1.keys()) | set(genes2.keys())
 
-    # Determine the more fit parent, or None if they have equal fitness
-    more_fit_parent = None
-    if self.fitness > other_genome.fitness:
-        more_fit_parent = self
-    elif self.fitness < other_genome.fitness:
-        more_fit_parent = other_genome
+        # Determine the more fit parent, or None if they have equal fitness
+        more_fit_parent = None
+        if self.fitness > other_genome.fitness:
+            more_fit_parent = self
+        elif self.fitness < other_genome.fitness:
+            more_fit_parent = other_genome
 
-    for innovation_number in all_innovations:
-        gene1 = genes1.get(innovation_number)
-        gene2 = genes2.get(innovation_number)
+        for innovation_number in all_innovations:
+            gene1 = genes1.get(innovation_number)
+            gene2 = genes2.get(innovation_number)
 
-        offspring_gene = None
-        if gene1 and gene2:  # Matching genes
-            offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
-        elif gene1 or gene2:  # Disjoint or excess genes
-            if more_fit_parent:
-                parent_gene = genes1.get(innovation_number) if more_fit_parent == self else genes2.get(innovation_number)
-                if parent_gene:
+            offspring_gene = None
+            if gene1 and gene2:  # Matching genes
+                offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+            elif gene1 or gene2:  # Disjoint or excess genes
+                if more_fit_parent:
+                    parent_gene = genes1.get(innovation_number) if more_fit_parent == self else genes2.get(innovation_number)
+                    if parent_gene:
+                        offspring_gene = parent_gene.copy(retain_innovation_number=True)
+                else:  # Fitness is equal, choose randomly
+                    parent_gene = gene1 if gene1 else gene2
                     offspring_gene = parent_gene.copy(retain_innovation_number=True)
-            else:  # Fitness is equal, choose randomly
-                parent_gene = gene1 if gene1 else gene2
-                offspring_gene = parent_gene.copy(retain_innovation_number=True)
 
-        if offspring_gene:
-            offspring.connection_genes[offspring_gene.id] = offspring_gene
+            if offspring_gene:
+                offspring.connection_genes[offspring_gene.id] = offspring_gene
 
-    return offspring
-
+        return offspring
 
     def calculate_genetic_distance(self, other_genome):
 
