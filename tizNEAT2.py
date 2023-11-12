@@ -5,7 +5,7 @@ import multiprocessing
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-import gym
+import gymnasium as gym
 import pickle
 
 config = {
@@ -159,7 +159,7 @@ class Population:
 
     def evaluate_single_genome(self, genome):
         environment = gym.make("BipedalWalker-v3", hardcore=True)
-        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=1600, new_step_api=True)
+        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=2000)
 
         neural_network = genome.build_network()
         observation = environment.reset()
@@ -178,14 +178,15 @@ class Population:
     def evaluate(self):
         # Create a multiprocessing pool
         #with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+
         with multiprocessing.Pool(config["parallelization"]) as pool:
             # Parallelize the evaluation of genomes
-            fitness_scores = pool.map(self.evaluate_single_genome(), self.genomes)
+            fitness_scores = pool.map(self.evaluate_single_genome, self.genomes.values())
+
 
         # Assign fitness scores back to genomes
-        for genome, fitness in zip(self.genomes, fitness_scores):
+        for genome, fitness in zip(self.genomes.values(), fitness_scores):
             genome.fitness = fitness
-
     ####################################################################
 
     def speciate(self):  # add id to species # FIXME #
@@ -309,7 +310,7 @@ class Species:
         self.generations_without_improvement = 0
 
     def add_genome(self, genome):
-        self.genomes.append(genome)
+        self.genomes[genome.id] = genome
         if not self.representative:
             self.representative = genome
 
@@ -317,29 +318,28 @@ class Species:
         if not 0 < keep_best_percentage <= 1:
             raise ValueError("keep_best_percentage must be between 0 and 1.")
 
-        self.genomes.sort(key=lambda genome: genome.fitness, reverse=True)
+        # Sort genomes by fitness and update genomes dictionary
+        sorted_genomes = sorted(self.genomes.values(), key=lambda genome: genome.fitness, reverse=True)
+        cutoff = int(len(sorted_genomes) * keep_best_percentage)
+        self.genomes = {genome.id: genome for genome in sorted_genomes[:cutoff]}
 
-        cutoff = int(len(self.genomes) * keep_best_percentage)
-        self.genomes = self.genomes[:cutoff]
+        # Update elites
+        self.elites = {genome.id: genome for genome in sorted_genomes[:min(len(sorted_genomes), 2)]}
 
     def produce_offspring(self, offspring_count=1):
         offspring = []
         for _ in range(offspring_count):
-
-            parent1 = random.choice(self.genomes)
-            parent2 = random.choice(self.genomes if len(self.genomes) > 1 else [parent1])
-
+            parent1, parent2 = random.sample(list(self.genomes.values()), 2)  # Randomly select two different parents
             child = parent1.crossover(parent2)
-
             child.mutate()
             offspring.append(child)
         return offspring
 
     def random_genome(self):
-        return random.choice(self.genomes)
+        return random.choice(list(self.genomes.values()))
 
     def is_same_species(self, genome):
-        distance = genome.calculate_genetic_distance(self.representative, genome, config) ### ???
+        distance = genome.calculate_genetic_distance(self.representative)
         return distance < config["compatibility_threshold"]
 
 class Genome:
@@ -357,7 +357,7 @@ class Genome:
         self.add_neurons("output", config["output_neurons"])
         max_possible_conn = config["input_neurons"] * config["output_neurons"]
         attempts = min(config["initial_conn_attempts"], max_possible_conn)
-        self.attempt_connections(innovation_manager, "input", "output", attempts)
+        self.attempt_connections("input", "output", attempts)
         return self
 
     def add_neurons(self, layer, count):
@@ -372,7 +372,7 @@ class Genome:
     ##########################################        
     def mutate(self):
         if random.random() < config["gene_add_chance"]:
-            self.attempt_connections(1)
+            self.attempt_connections()
         if random.random() < config["neuron_add_chance"]:
             self.add_neurons("hidden", 1)
         if random.random() < config["weight_mutate_chance"]:
@@ -584,7 +584,9 @@ class NeuralNetwork:
         return self_connection[1] if self_connection else 0
 
 class Visualization:
-    self.id = IdManager.get_new_id()
+    def __init__(self):
+        self.id = IdManager.get_new_id()
+
     def plot_species_count(self, data):
         plt.plot(data)
         plt.title("Species Count")
@@ -624,6 +626,7 @@ def NEAT_run():
     
     population.save_genomes_to_file("final_population.pkl")
     visualizer.visualize_network(population.best_genome)
+    print("Objects created:", InnovationManager.get_new_innovation_number())
 
 if __name__ == "__main__":
     NEAT_run()
