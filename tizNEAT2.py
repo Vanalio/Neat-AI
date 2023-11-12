@@ -14,7 +14,7 @@ config = {
     "hidden_neurons": 1,
     "output_neurons": 4,
     "initial_conn_attempts": 15, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
-    "refractory_factor": 0.25,
+    "refractory_factor": 0.33,
 
     "generations": 200,
     "population_size": 5000,
@@ -588,19 +588,81 @@ class NeuronGene:
 
 class NeuralNetwork:
     def __init__(self, genome):
-        self.id = IdManager.get_new_id()
         self.genome = genome
-        self.neurons = []
+        self.neurons = {}  # key: neuron id, value: Neuron object
         self.input_neurons = []
         self.output_neurons = []
-        self.connections = []
         self.initialize_network()
 
     def initialize_network(self):
-        pass
+        # Create Neurons from NeuronGenes
+        for neuron_id, neuron_gene in self.genome.neuron_genes.items():
+            if neuron_gene.enabled:
+                activation_func = getattr(ActivationFunctions, neuron_gene.activation)
+                neuron = Neuron(neuron_id, neuron_gene.layer, activation_func, neuron_gene.bias)
+                self.neurons[neuron_id] = neuron
+                if neuron_gene.layer == 'input':
+                    self.input_neurons.append(neuron)
+                elif neuron_gene.layer == 'output':
+                    self.output_neurons.append(neuron)
 
-    def forward_pass(self, inputs, num_timesteps):
-        pass
+        # Create Connections from ConnectionGenes
+        for conn_id, conn_gene in self.genome.connection_genes.items():
+            if conn_gene.enabled:
+                from_neuron = self.neurons[conn_gene.from_neuron]
+                to_neuron = self.neurons[conn_gene.to_neuron]
+                connection = Connection(from_neuron, to_neuron, conn_gene.weight)
+                to_neuron.add_input_connection(connection)
+
+    def forward_pass(self, inputs, num_timesteps=1):
+        outputs = []
+        saved_state = {neuron_id: 0 for neuron_id in self.neurons}  # Initial state
+
+        for t in range(num_timesteps):
+            # Update input neurons with current inputs
+            for i, neuron in enumerate(self.input_neurons):
+                neuron.value = inputs[i]
+                saved_state[neuron.id] = inputs[i]
+
+            # Propagate through network
+            for neuron_id, neuron in self.neurons.items():
+                if neuron.layer != 'input':
+                    neuron.calculate_activation(saved_state)
+                    saved_state[neuron_id] = neuron.value
+
+            # Collect outputs for this timestep
+            timestep_output = [neuron.value for neuron in self.output_neurons]
+            outputs.append(timestep_output)
+
+        return outputs
+
+class Neuron:
+    def __init__(self, id, layer, activation_function, bias):
+        self.id = id
+        self.layer = layer
+        self.activation_function = activation_function
+        self.bias = bias
+        self.value = 0
+        self.input_connections = []  # List of Connection objects
+
+    def add_input_connection(self, connection):
+        self.input_connections.append(connection)
+
+    def calculate_activation(self, saved_state):
+        refractory_factor = config["refractory_factor"]
+        weighted_sum = sum(conn.weight * saved_state[conn.from_neuron.id] for conn in self.input_connections) + self.bias
+
+        # Apply refractory scaling to previous state's value
+        if self.layer != 'input':  # Assuming input neurons don't have refractory behavior
+            weighted_sum += self.value * refractory_factor
+
+        self.value = self.activation_function(weighted_sum)
+
+class Connection:
+    def __init__(self, from_neuron, to_neuron, weight):
+        self.from_neuron = from_neuron
+        self.to_neuron = to_neuron
+        self.weight = weight
 
 class Visualization:
     def __init__(self):
