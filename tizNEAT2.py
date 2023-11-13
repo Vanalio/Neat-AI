@@ -5,16 +5,18 @@ import multiprocessing
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import networkx as nx
 import gymnasium as gym
 import pickle
 
 config = {
 
     "input_neurons": 24,
-    "hidden_neurons": 1,
+    "hidden_neurons": 24,
     "output_neurons": 4,
-    "initial_conn_attempts": 15, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
-    "refractory_factor": 0.33,
+    "initial_conn_attempts": 1500, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "attempts_to_max_factor": 5,
+    "refractory_factor": 0.66,
 
     "generations": 10,
     "population_size": 10,
@@ -42,7 +44,7 @@ config = {
     "bias_init_range": (-2, 2),
 
     "activation_mutate_chance": 0.1,
-    "default_hidden_activation": "clipped_relu",
+    "default_hidden_activation": "relu",
     "default_output_activation": "identity",
     "relu_clip_at": 1,
 
@@ -149,16 +151,13 @@ class Population:
 
     def evaluate_single_genome(self, genome):
         environment = gym.make("BipedalWalker-v3", hardcore=True, render_mode="human")
-        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=200)
+        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=100)
 
         neural_network = genome.build_network()
-        for neuron_id, neuron in neural_network.neurons.items():
-            print(f"Neuron {neuron_id}, Layer: {neuron.layer}, Bias: {neuron.bias}")
-            for conn in neuron.input_connections:
-                print(f"  - Connection from {conn.from_neuron.id}, Weight: {conn.weight}")
         observation_tuple = environment.reset()
         observation = observation_tuple[0]  # Extract the array part of the tuple
-        #print("Observation size:", len(observation))
+        print("Observation size:", len(observation))
+        print("Observation:", observation)
         done = False
         total_reward = 0
 
@@ -168,7 +167,7 @@ class Population:
             #print(action)
             observation, reward, terminated, truncated, info = environment.step(action)  # Use 'action' here
             total_reward += reward
-            print("Tot. reward:", total_reward, "- Terminated:", terminated, "- Truncated:", truncated)
+            #print("Tot. reward:", total_reward, "- Terminated:", terminated, "- Truncated:", truncated)
             done = terminated or truncated
 
         environment.close()
@@ -197,20 +196,19 @@ class Population:
             genome.fitness = fitness
     ####################################################################
 
-    def speciate(self):  # add id to species # FIXME #
-
+    def speciate(self):
         self.species = {}
-        for genome in self.genomes:
-            placed_in_species = False                         # before trying to add to a specied, consider not in any species
-            for species_instance in self.species:             # for each Species instance
-                if species_instance.is_same_species(genome):  # if genome fit the species
-                    species_instance.add_genome(genome)       # add genome to species
-                    placed_in_species = True                  # and set is as assigned
+        for _, genome in self.genomes.items():  # Iterate over genome objects
+            placed_in_species = False
+            for species_instance in self.species.values():  # Iterate over Species objects
+                if species_instance.is_same_species(genome):
+                    species_instance.add_genome(genome)
+                    placed_in_species = True
                     break
             if not placed_in_species:
-                new_species = Species()               # create a new species for the genome
-                new_species.add_genome(genome)        # add genome to it
-                self.species.append(new_species)      # add species to the list of species
+                new_species = Species()
+                new_species.add_genome(genome)
+                self.species[new_species.id] = new_species  # Use species ID as key
 
         species_ratio = len(self.species) / config["target_species"]
         if species_ratio < 1.0:
@@ -220,7 +218,7 @@ class Population:
 
     def remove_species(self, removal_condition, message):
         initial_species_count = len(self.species)
-        self.species = [spec for spec in self.species if not removal_condition(spec)]
+        self.species = {species_id: spec for species_id, spec in self.species.items() if not removal_condition(spec)}
         removed_count = initial_species_count - len(self.species)
         if removed_count:
             print(f"Removed {removed_count} {message}")
@@ -230,12 +228,13 @@ class Population:
         is_stale = lambda spec: spec.generations_without_improvement > stale_threshold
         self.remove_species(is_stale, "stale species")
 
-        total_avg_fitness = sum(spec.average_fitness for spec in self.species)
+        total_avg_fitness = sum(spec.average_fitness for spec in self.species.values())
         threshold = config["target_species"]
         is_weak = lambda spec: (spec.average_fitness / total_avg_fitness * len(self.genomes)) < threshold
         self.remove_species(is_weak, "weak species")
 
     def assess(self):
+        print("Assessing population...")
         total_fitness = 0
         self.max_fitness = 0
         self.best_genome = None
@@ -369,7 +368,7 @@ class Genome:
         self.add_neurons("output", config["output_neurons"])
         self.add_neurons("hidden", config["hidden_neurons"])
         max_possible_conn = config["hidden_neurons"] * (config["input_neurons"] + config["hidden_neurons"] + config["output_neurons"])
-        attempts = min(config["initial_conn_attempts"], max_possible_conn)
+        attempts = min(config["initial_conn_attempts"], max_possible_conn * config["attempts_to_max_factor"])
         self.attempt_connections(from_layer=None, to_layer=None, attempts=attempts)
         return self
 
@@ -407,14 +406,14 @@ class Genome:
             else:
                 # Randomly select layers based on architecture rules
                 from_layers = ['input', 'hidden']
-                from_layer = random.choice(from_layers)
-                if from_layer == 'input':
-                    to_layer = 'hidden'
-                elif from_layer == 'hidden':
-                    to_layer = random.choice(['hidden', 'output'])
+                attempting_from_layer = random.choice(from_layers)
+                if attempting_from_layer == 'input':
+                    attempting_to_layer = 'hidden'
+                elif attempting_from_layer == 'hidden':
+                    attempting_to_layer = random.choice(['hidden', 'output'])
                 
-                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer]
-                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer]
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer]
 
             # Check if there are neurons available for connection
             if not from_neurons or not to_neurons:
@@ -542,12 +541,11 @@ class Genome:
         return offspring
 
     def calculate_genetic_distance(self, other_genome):
-
-        genes1 = sorted(self.connection_genes, key=lambda g: g.innovation_number)
-        genes2 = sorted(other_genome.connection_genes, key=lambda g: g.innovation_number)
+        genes1 = sorted(self.connection_genes.values(), key=lambda g: g.innovation_number)
+        genes2 = sorted(other_genome.connection_genes.values(), key=lambda g: g.innovation_number)
 
         i = j = 0
-        disjoint_genes = excess_genes = matching_genes = weight_diff = 0
+        disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
 
         while i < len(genes1) and j < len(genes2):
             gene1 = genes1[i]
@@ -556,6 +554,8 @@ class Genome:
             if gene1.innovation_number == gene2.innovation_number:
                 matching_genes += 1
                 weight_diff += abs(gene1.weight - gene2.weight)
+                if self.neuron_genes[gene1.to_neuron].activation != other_genome.neuron_genes[gene2.to_neuron].activation:
+                    activation_diff += 1
                 i += 1
                 j += 1
             elif gene1.innovation_number < gene2.innovation_number:
@@ -567,11 +567,13 @@ class Genome:
 
         excess_genes = len(genes1[i:]) + len(genes2[j:])
         weight_diff /= matching_genes if matching_genes else 1
+        activation_diff /= matching_genes if matching_genes else 1
 
         N = max(len(genes1), len(genes2))
-        distance = (config.disjoint_coefficient * disjoint_genes / N) + (config.weight_diff_coefficient * weight_diff)
+        distance = (config["disjoint_coefficient"] * disjoint_genes / N) + (config["excess_coefficient"] * excess_genes / N) + (config["weight_diff_coefficient"] * weight_diff) + (config["activation_diff_coefficient"] * activation_diff)
 
         return distance
+
 
 class ConnectionGene:
     def __init__(self, from_neuron, to_neuron):
@@ -593,8 +595,8 @@ class NeuronGene:
     def __init__(self, layer):
         self.id = IdManager.get_new_id()
         self.layer = layer
-        self.activation = self.activation = config["default_hidden_activation"] if self.layer == "hidden" else (config["default_output_activation"] if self.layer == "output" else "identity")
-        self.bias = random.uniform(*config["bias_init_range"])
+        self.activation = config["default_hidden_activation"] if self.layer == "hidden" else (config["default_output_activation"] if self.layer == "output" else "identity")
+        self.bias = random.uniform(*config["bias_init_range"]) if self.layer == "output" or self.layer == "hidden" else 0
         self.enabled = True
 
     def copy(self):
@@ -611,6 +613,7 @@ class NeuralNetwork:
         self.input_neurons = []
         self.output_neurons = []
         self.initialize_network()
+        self.saved_state = {neuron_id: 0 for neuron_id in self.neurons}  # Persistent state
 
     def initialize_network(self):
         # Create Neurons from NeuronGenes
@@ -630,28 +633,25 @@ class NeuralNetwork:
                 from_neuron = self.neurons[conn_gene.from_neuron]
                 to_neuron = self.neurons[conn_gene.to_neuron]
                 connection = Connection(from_neuron, to_neuron, conn_gene.weight)
-                print(f"Creating connection from neuron {conn_gene.from_neuron} to neuron {conn_gene.to_neuron} with weight {conn_gene.weight}")
                 to_neuron.add_input_connection(connection)
         
-    def forward_pass(self, inputs, num_timesteps=1):
+    def forward_pass(self, inputs):
         outputs = []
-        saved_state = {neuron_id: 0 for neuron_id in self.neurons}  # Initial state
 
-        for _ in range(num_timesteps):
-            # Update input neurons with current inputs
-            for i, neuron in enumerate(self.input_neurons):
-                neuron.value = inputs[i]
-                saved_state[neuron.id] = inputs[i]
+        # Update input neurons with current inputs
+        for i, neuron in enumerate(self.input_neurons):
+            neuron.value = inputs[i]
+            self.saved_state[neuron.id] = inputs[i]
 
-            # Propagate through network
-            for neuron_id, neuron in self.neurons.items():
-                if neuron.layer != 'input':
-                    neuron.calculate_activation(saved_state)
-                    saved_state[neuron_id] = neuron.value
+        # Propagate through network using existing saved_state
+        for neuron_id, neuron in self.neurons.items():
+            if neuron.layer != 'input':
+                neuron.calculate_activation(self.saved_state)
+                self.saved_state[neuron_id] = neuron.value
 
-            # Collect outputs for this timestep
-            timestep_output = [neuron.value for neuron in self.output_neurons]
-            outputs.append(timestep_output)
+        # Collect outputs for this timestep
+        timestep_output = [neuron.value for neuron in self.output_neurons]
+        outputs.append(timestep_output)
 
         return outputs
 
@@ -705,11 +705,41 @@ class Visualization:
     def visualize_network(self, genome):
         pass
 
+def dumb_visualize_network(genome):
+    # Create a directed graph
+    G = nx.DiGraph()
+
+    # Add nodes with different styles for different types of neurons
+    for neuron_id, neuron_gene in genome.neuron_genes.items():
+        if neuron_gene.enabled:
+            if neuron_gene.layer == 'input':
+                G.add_node(neuron_id, color='skyblue', style='filled', shape='circle')
+            elif neuron_gene.layer == 'output':
+                G.add_node(neuron_id, color='lightgreen', style='filled', shape='circle')
+            else:  # hidden
+                G.add_node(neuron_id, color='lightgrey', style='filled', shape='circle')
+
+    # Add edges
+    for _, conn_gene in genome.connection_genes.items():
+        if conn_gene.enabled:
+            G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight)
+
+    # Choose a layout for the network
+    pos = nx.spring_layout(G)
+
+    # Draw nodes and edges
+    nx.draw(G, pos, with_labels=True, node_color=[G.nodes[node]['color'] for node in G.nodes], edge_color='black', width=1, linewidths=1, node_size=500, alpha=0.9)
+    
+    # Show the plot
+    plt.show()
+
 def NEAT_run():
     population = Population(first=True)
     visualizer = Visualization()
     species_data = []
     fitness_data = []
+    first_genome = next(iter(population.genomes.values()))
+    #dumb_visualize_network(first_genome)
 
     for generation in range(config["generations"]):
     
