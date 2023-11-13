@@ -12,11 +12,11 @@ import pickle
 config = {
 
     "input_neurons": 24,
-    "hidden_neurons": 24,
+    "hidden_neurons": 1,
     "output_neurons": 4,
     "initial_conn_attempts": 1500, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
-    "refractory_factor": 0.66,
+    "refractory_factor": 1,
 
     "generations": 10,
     "population_size": 10,
@@ -45,7 +45,7 @@ config = {
 
     "activation_mutate_chance": 0.1,
     "default_hidden_activation": "relu",
-    "default_output_activation": "identity",
+    "default_output_activation": "relu",
     "relu_clip_at": 1,
 
     "gene_add_chance": 0.02,
