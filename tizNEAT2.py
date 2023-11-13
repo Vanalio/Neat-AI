@@ -91,7 +91,7 @@ class Population:
         total_reward = 0
 
         while not done:
-            outputs = neural_network.forward_pass(observation)
+            outputs = neural_network.process_sequence(observation)
             action = np.array(outputs[-1]).flatten()  # Flatten and convert to NumPy array
             #print(action)
             observation, reward, terminated, truncated, info = environment.step(action)  # Use 'action' here
@@ -564,7 +564,7 @@ class NeuralNetwork:
                 connection = Connection(from_neuron, to_neuron, conn_gene.weight)
                 to_neuron.add_input_connection(connection)
         
-    def forward_pass(self, inputs):
+    def process_sequence(self, inputs):
         outputs = []
 
         # Update input neurons with current inputs
