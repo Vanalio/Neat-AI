@@ -62,77 +62,6 @@ config = {
     "population_save_interval": 10
 }
 
-class ActivationFunctions:
-
-    @staticmethod
-    def get_activation_functions():
-        return [
-            "identity", "relu", "leaky_relu", "clipped_relu",
-            "tanh", "sigmoid", "softplus", "abs"
-        ]
-
-    @staticmethod
-    def identity(x):
-        return x
-
-    @staticmethod
-    def relu(x):
-        return np.maximum(0, x)
-
-    @staticmethod
-    def leaky_relu(x):
-        return np.where(x > 0, x, x * 0.01)
-
-    @staticmethod
-    def clipped_relu(x):
-        return np.clip(x, 0, config["relu_clip_at"])
-
-    @staticmethod
-    def tanh(x):
-        return np.tanh(x)
-
-    @staticmethod
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
-
-    @staticmethod
-    def softplus(x):
-        return np.log1p(np.exp(x))
-
-    @staticmethod
-    def abs(x):
-        return np.abs(x)
-
-class IdManager:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(IdManager, cls).__new__(cls, *args, **kwargs)
-            cls._instance.current_id = 0
-        return cls._instance
-
-    @staticmethod
-    def get_new_id():
-        instance = IdManager()
-        instance.current_id += 1
-        return instance.current_id
-
-class InnovationManager:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(InnovationManager, cls).__new__(cls, *args, **kwargs)
-            cls._instance.current_innovation = 0
-        return cls._instance
-
-    @staticmethod
-    def get_new_innovation_number():
-        instance = InnovationManager()
-        instance.current_innovation += 1
-        return instance.current_innovation
-
 class Population:
     def __init__(self, first=False):
         self.id = IdManager.get_new_id()
@@ -683,6 +612,77 @@ class Connection:
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
         self.weight = weight
+
+class ActivationFunctions:
+
+    @staticmethod
+    def get_activation_functions():
+        return [
+            "identity", "relu", "leaky_relu", "clipped_relu",
+            "tanh", "sigmoid", "softplus", "abs"
+        ]
+
+    @staticmethod
+    def identity(x):
+        return x
+
+    @staticmethod
+    def relu(x):
+        return np.maximum(0, x)
+
+    @staticmethod
+    def leaky_relu(x):
+        return np.where(x > 0, x, x * 0.01)
+
+    @staticmethod
+    def clipped_relu(x):
+        return np.clip(x, 0, config["relu_clip_at"])
+
+    @staticmethod
+    def tanh(x):
+        return np.tanh(x)
+
+    @staticmethod
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    @staticmethod
+    def softplus(x):
+        return np.log1p(np.exp(x))
+
+    @staticmethod
+    def abs(x):
+        return np.abs(x)
+
+class IdManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(IdManager, cls).__new__(cls, *args, **kwargs)
+            cls._instance.current_id = 0
+        return cls._instance
+
+    @staticmethod
+    def get_new_id():
+        instance = IdManager()
+        instance.current_id += 1
+        return instance.current_id
+
+class InnovationManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(InnovationManager, cls).__new__(cls, *args, **kwargs)
+            cls._instance.current_innovation = 0
+        return cls._instance
+
+    @staticmethod
+    def get_new_innovation_number():
+        instance = InnovationManager()
+        instance.current_innovation += 1
+        return instance.current_innovation
 
 class Visualization:
     def __init__(self):
