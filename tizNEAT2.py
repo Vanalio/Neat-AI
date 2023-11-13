@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import gymnasium as gym
 import pickle
+import torch
+import torch.nn as nn
 
 config = {
 
@@ -503,7 +505,6 @@ class Genome:
 
         return distance
 
-
 class ConnectionGene:
     def __init__(self, from_neuron, to_neuron):
         self.id = IdManager.get_new_id()
@@ -535,83 +536,63 @@ class NeuronGene:
         new_gene.enabled = self.enabled
         return new_gene
 
-class NeuralNetwork:
+class CustomNetwork(nn.Module):
     def __init__(self, genome):
+        super(CustomNetwork, self).__init__()
         self.genome = genome
-        self.neurons = {}  # key: neuron id, value: Neuron object
-        self.input_neurons = []
-        self.output_neurons = []
-        self.initialize_network()
-        self.saved_state = {neuron_id: 0 for neuron_id in self.neurons}  # Persistent state
+        self.neurons = nn.ModuleDict()  # key: neuron id, value: Neuron object
+        self.build_network_from_genome(genome)
 
-    def initialize_network(self):
-        # Create Neurons from NeuronGenes
-        for neuron_id, neuron_gene in self.genome.neuron_genes.items():
+    def build_network_from_genome(self, genome):
+        for neuron_id, neuron_gene in genome.neuron_genes.items():
             if neuron_gene.enabled:
-                activation_func = getattr(ActivationFunctions, neuron_gene.activation)
+                activation_func = self.get_activation_function(neuron_gene.activation)
                 neuron = Neuron(neuron_id, neuron_gene.layer, activation_func, neuron_gene.bias)
                 self.neurons[neuron_id] = neuron
-                if neuron_gene.layer == 'input':
-                    self.input_neurons.append(neuron)
-                elif neuron_gene.layer == 'output':
-                    self.output_neurons.append(neuron)
 
-        # Create Connections from ConnectionGenes
-        for _, conn_gene in self.genome.connection_genes.items():
+        for conn_gene in genome.connection_genes.values():
             if conn_gene.enabled:
                 from_neuron = self.neurons[conn_gene.from_neuron]
                 to_neuron = self.neurons[conn_gene.to_neuron]
                 connection = Connection(from_neuron, to_neuron, conn_gene.weight)
-                to_neuron.add_input_connection(connection)
-        
-    def process_timestep(self, input_data):
-        # Update input neurons
-        for i, neuron in enumerate(self.input_neurons):
-            neuron.value = input_data[i]
+                to_neuron.input_connections.append(connection)
 
-        # Process hidden layer without refractory scaling
-        new_state = {}
+    def forward(self, input_data):
+        # Assuming input_data is a dictionary: neuron_id -> value
+        output_values = {}
         for neuron_id, neuron in self.neurons.items():
-            if neuron.layer == 'hidden':
-                # Calculate activation considering current input (full value of state is used here)
-                neuron.calculate_activation(self.state, self.neurons)
-                # Apply refractory scaling only when saving the state for the next timestep
-                scaled_state = neuron.value * config["refractory_factor"]
-                new_state[neuron_id] = scaled_state
+            if neuron.layer == 'input':
+                output_values[neuron_id] = input_data.get(neuron_id, 0)
+            else:
+                output_values[neuron_id] = neuron(output_values)
 
-        # Update the state for the next timestep
-        self.state = new_state
+        # Collect and return output layer values
+        return [output_values[neuron_id] for neuron_id in self.neurons if self.neurons[neuron_id].layer == 'output']
 
-        # Process output layer
-        output_values = []
-        for neuron in self.output_neurons:
-            neuron.calculate_activation(self.state, self.neurons)
-            output_values.append(neuron.value)
+    def get_activation_function(self, activation_name):
+        # Define or import your activation functions here
+        # Example: return torch.sigmoid if activation_name == 'sigmoid' else torch.nn.Identity()
+        pass
 
-        return output_values
-
-class Neuron:
-    def __init__(self, id, layer, activation_function, bias):
-        self.id = id
+class Neuron(nn.Module):
+    def __init__(self, neuron_id, layer, activation_function, bias):
+        super(Neuron, self).__init__()
+        self.id = neuron_id
         self.layer = layer
         self.activation_function = activation_function
-        self.bias = bias
-        self.value = 0
-        self.input_connections = []  # List of Connection objects
+        self.bias = nn.Parameter(torch.tensor(bias))
+        self.input_connections = nn.ModuleList()  # List of Connection objects
 
-    def add_input_connection(self, connection):
-        self.input_connections.append(connection)
-        print(f"Added connection from neuron {connection.from_neuron.id} to neuron {self.id}")
+    def forward(self, input_values):
+        weighted_sum = sum(connection.weight * input_values[connection.from_neuron.id] for connection in self.input_connections) + self.bias
+        return self.activation_function(weighted_sum)
 
-    def calculate_activation(self, saved_state):
-        weighted_sum = sum(conn.weight * saved_state[conn.from_neuron.id] for conn in self.input_connections) + self.bias
-        self.value = self.activation_function(weighted_sum)
-
-class Connection:
+class Connection(nn.Module):
     def __init__(self, from_neuron, to_neuron, weight):
+        super(Connection, self).__init__()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
-        self.weight = weight
+        self.weight = nn.Parameter(torch.tensor(weight))
 
 class ActivationFunctions:
 
