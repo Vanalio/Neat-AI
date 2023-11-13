@@ -564,25 +564,31 @@ class NeuralNetwork:
                 connection = Connection(from_neuron, to_neuron, conn_gene.weight)
                 to_neuron.add_input_connection(connection)
         
-    def process_sequence(self, inputs):
-        outputs = []
-
-        # Update input neurons with current inputs
+    def process_timestep(self, input_data):
+        # Update input neurons
         for i, neuron in enumerate(self.input_neurons):
-            neuron.value = inputs[i]
-            self.saved_state[neuron.id] = inputs[i]
+            neuron.value = input_data[i]
 
-        # Propagate through network using existing saved_state
+        # Process hidden layer without refractory scaling
+        new_state = {}
         for neuron_id, neuron in self.neurons.items():
-            if neuron.layer != 'input':
-                neuron.calculate_activation(self.saved_state)
-                self.saved_state[neuron_id] = neuron.value
+            if neuron.layer == 'hidden':
+                # Calculate activation considering current input (full value of state is used here)
+                neuron.calculate_activation(self.state, self.neurons)
+                # Apply refractory scaling only when saving the state for the next timestep
+                scaled_state = neuron.value * config["refractory_factor"]
+                new_state[neuron_id] = scaled_state
 
-        # Collect outputs for this timestep
-        timestep_output = [neuron.value for neuron in self.output_neurons]
-        outputs.append(timestep_output)
+        # Update the state for the next timestep
+        self.state = new_state
 
-        return outputs
+        # Process output layer
+        output_values = []
+        for neuron in self.output_neurons:
+            neuron.calculate_activation(self.state, self.neurons)
+            output_values.append(neuron.value)
+
+        return output_values
 
 class Neuron:
     def __init__(self, id, layer, activation_function, bias):
@@ -598,13 +604,7 @@ class Neuron:
         print(f"Added connection from neuron {connection.from_neuron.id} to neuron {self.id}")
 
     def calculate_activation(self, saved_state):
-        refractory_factor = config["refractory_factor"]
         weighted_sum = sum(conn.weight * saved_state[conn.from_neuron.id] for conn in self.input_connections) + self.bias
-
-        # Apply refractory scaling to previous state's value
-        if self.layer != 'input':  # Assuming input neurons don't have refractory behavior
-            weighted_sum += self.value * refractory_factor
-
         self.value = self.activation_function(weighted_sum)
 
 class Connection:
