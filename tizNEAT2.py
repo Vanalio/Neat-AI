@@ -13,14 +13,14 @@ import torch.nn as nn
 config = {
 
     "input_neurons": 24,
-    "hidden_neurons": 5,
+    "hidden_neurons": 1,
     "output_neurons": 4,
-    "initial_conn_attempts": 200, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 50, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
     "refractory_factor": 1,
 
     "generations": 10,
-    "population_size": 200,
+    "population_size": 10,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -55,7 +55,7 @@ config = {
     "weight_mutate_factor": 0.5,
     "weight_init_range": (-2, 2),
 
-    "parallelize": True,
+    "parallelize": False,
     "parallelization": 6,
 
     "global_mutation_enable": False,
@@ -237,8 +237,8 @@ class Population:
             self.genomes = pickle.load(file)
 
     def evolve(self):
-        self.evaluate()
         self.speciate()
+        self.evaluate()
         self.prune_species()
         self.assess()
         self.survive_and_reproduce()
@@ -250,6 +250,7 @@ class Species:
         self.elites = {}
         self.representative = None
         self.max_shared_fitness = float('-inf')  # Highest shared fitness in the species
+        self.average_fitness = 0
         self.age = 0
         self.generations_without_improvement = 0
 
