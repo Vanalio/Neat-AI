@@ -13,27 +13,27 @@ import torch.nn as nn
 config = {
 
     "input_neurons": 24,
-    "hidden_neurons": 10,
+    "hidden_neurons": 1,
     "output_neurons": 4,
-    "initial_conn_attempts": 150, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 90, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
     "refractory_factor": 0.33,
 
     "generations": 10,
-    "population_size": 100,
+    "population_size": 20,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
     "target_species": 25,
     "min_species": 2,
-    "weak_threshold": 0.25, # percentage of total average fitness for a species to be considered weak and completely removed
-    "keep_best_percentage": 0.25, # percentage of genomes to keep in each species
+    "weak_threshold": 0.33, # percentage of total average fitness for a species to be considered weak and completely removed
+    "keep_best_percentage": 0.33, # percentage of genomes to keep in each species
 
-    "compatibility_threshold": 2,
-    "distance_adj_factor": 0.5,
+    "compatibility_threshold": 1.95,
+    "distance_adj_factor": 0.1,
     "disjoint_coefficient": 1,
     "excess_coefficient": 1,
-    "weight_diff_coefficient": 1,
+    "weight_diff_coefficient": 5,
     "activation_diff_coefficient": 1,
 
     "allow_interspecies_mating": True,
@@ -43,7 +43,7 @@ config = {
     "neuron_toggle_chance": 0.0075,
     "bias_mutate_chance": 0.1,
     "bias_mutate_factor": 0.5,
-    "bias_init_range": (-2, 2),
+    "bias_init_range": (-10, 10),
 
     "activation_mutate_chance": 0.1,
     "default_hidden_activation": "clipped_relu",
@@ -54,7 +54,7 @@ config = {
     "gene_toggle_chance": 0.001,
     "weight_mutate_chance": 0.1,
     "weight_mutate_factor": 0.5,
-    "weight_init_range": (-2, 2),
+    "weight_init_range": (-10, 10),
 
     "parallelize": False,
     "parallelization": 6,
@@ -147,15 +147,26 @@ class Population:
         self.species = {}
         for _, genome in self.genomes.items():  # Iterate over genome objects
             placed_in_species = False
-            for species_instance in self.species.values():  # Iterate over Species objects
+            print(f"Processing genome ID: {genome.id}")
+
+            for species_id, species_instance in self.species.items():  # Iterate over Species objects
+                print(f"Checking against species ID: {species_id}")
                 if species_instance.is_same_species(genome):
+                    #print(f"Genome {genome.id} is in the same species as the representative")
                     species_instance.add_genome(genome)
                     placed_in_species = True
+                    #print(f"Genome {genome.id} placed in existing species {species_id}")
                     break
+
             if not placed_in_species:
+                #print(f"Genome {genome.id} is not in this species")
                 new_species = Species()
+                print(f"New species ID: {new_species.id}")
                 new_species.add_genome(genome)
-                self.species[new_species.id] = new_species  # Use species ID as key
+                self.species[new_species.id] = new_species
+                print(f"Added new species {new_species.id} to population...")
+            else:
+                print(f"Skipped genome {genome.id}, already placed in a species.")
 
         species_ratio = len(self.species) / config["target_species"]
         if species_ratio < 1.0:
@@ -164,8 +175,11 @@ class Population:
             config["compatibility_threshold"] *= (1.0 + config["distance_adj_factor"])
         print(f"Species count: {len(self.species)}, Adjusted compatibility threshold: {config['compatibility_threshold']}")
 
+        # Additional print for debugging: Display all species and their members
+        for species_id, species_instance in self.species.items():
+            print(f"Species ID: {species_id}, Species representatives: {species_instance.representative.id}, Species members: {len(species_instance.genomes)}")
+
     def remove_species(self, removal_condition, message):
-        print(f"Removing {message}...")
         initial_species_count = len(self.species)
         self.species = {species_id: spec for species_id, spec in self.species.items() if not removal_condition(spec)}
         removed_count = initial_species_count - len(self.species)
@@ -175,16 +189,13 @@ class Population:
     def prune_species(self):
         print("Pruning species...")
 
-        # Use total average fitness from the population
-        total_avg_fitness = self.average_fitness
-
         # Calculate the stale threshold and weak species threshold
         stale_threshold = config["max_stagnation"]
         weak_threshold = config["weak_threshold"]
 
         # Define conditions for stale and weak species
         is_stale = lambda spec: spec.generations_without_improvement > stale_threshold
-        is_weak = lambda spec: (spec.average_fitness / total_avg_fitness * len(self.genomes)) < weak_threshold
+        is_weak = lambda spec: (spec.average_fitness / self.average_fitness * len(self.genomes)) < weak_threshold
 
         # Remove stale species if it does not go below the minimum required species
         if len(self.species) - len([spec for spec in self.species.values() if is_stale(spec)]) >= config["min_species"]:
@@ -193,9 +204,6 @@ class Population:
         # Remove weak species if it does not go below the minimum required species
         if len(self.species) - len([spec for spec in self.species.values() if is_weak(spec)]) >= config["min_species"]:
             self.remove_species(is_weak, "weak species")
-
-        print(f"Species count after pruning: {len(self.species)}")
-
 
     def assess(self):
         print("Assessing population...")
@@ -239,15 +247,12 @@ class Population:
         for species_instance in self.species.values():
             # Add elites to next generation
             next_gen_genomes.update(species_instance.elites)
-            #elite_ids = list(species_instance.elites.keys())[:config["elites_per_species"]]
-            #for elite_id in elite_ids:
-            #    next_gen_genomes.append(species_instance.elites[elite_id])
 
             # Cull species and produce offspring
-            species_instance.cull(keep_best=True)  # Keep only a portion of the genomes
+            species_instance.cull(config["keep_best_percentage"])  # Keep only a portion of the genomes
             offspring_count = self.get_offspring_count(species_instance)
             offspring = species_instance.produce_offspring(offspring_count)
-            next_gen_genomes.extend(offspring)
+            next_gen_genomes.update(offspring)
 
         # Handle interspecies offspring
         if config["allow_interspecies_mating"]:
@@ -264,12 +269,14 @@ class Population:
 
     def get_offspring_count(self, species):
         print("Getting offspring count...")
-        total_average_fitness = sum(spec.average_fitness for spec in self.species)
-        return int((species.average_fitness / total_average_fitness) * config["population_size"])
+        if self.average_fitness is None or self.average_fitness == 0:
+            raise ValueError("Average fitness is not calculated or zero.")
+        
+        return int((species.average_fitness / self.average_fitness) * config["population_size"])
 
     def produce_interspecies_offspring(self):
         print("Producing interspecies offspring...")
-        offspring = []
+        offspring = {}
         for _ in range(config["interspecies_mating_count"]):
             species_1 = self.random_species()
             species_2 = self.random_species()
@@ -277,7 +284,7 @@ class Population:
                 parent_1 = species_1.random_genome()
                 parent_2 = species_2.random_genome()
                 child = parent_1.crossover(parent_2)
-                offspring.append(child)
+                offspring[child.id] = child
         return offspring
 
     def random_species(self):
@@ -316,6 +323,12 @@ class Species:
         self.age = 0
         self.generations_without_improvement = 0
 
+    def is_same_species(self, genome):
+        #print(f"Checking if genome {genome.id} is in species {self.id}...")
+        distance = genome.calculate_genetic_distance(self.representative)
+        #print(f"Genome {genome.id} distance from species {self.id}: {distance}")
+        return distance < config["compatibility_threshold"]
+
     def add_genome(self, genome):
         #print(f"Adding genome {genome.id} to species {self.id}...")
         self.genomes[genome.id] = genome
@@ -337,12 +350,22 @@ class Species:
 
     def produce_offspring(self, offspring_count=1):
         print(f"Producing offspring for species {self.id}...")
-        offspring = []
+        offspring = {}
         for _ in range(offspring_count):
-            parent1, parent2 = random.sample(list(self.genomes.values()), 2)  # Randomly select two different parents
+            if len(self.genomes) > 1:
+                # If there are at least two members, randomly select two different parents
+                parent1, parent2 = random.sample(list(self.genomes.values()), 2)
+            elif self.genomes:
+                # If there is only one member, use it as both parents
+                parent1 = parent2 = next(iter(self.genomes.values()))
+            else:
+                # If there are no members in the species, skip this iteration
+                print(f"No members in species {self.id} to produce offspring")
+                break
+
             child = parent1.crossover(parent2)
             child.mutate()
-            offspring.append(child)
+            offspring[child.id] = child
         return offspring
 
     def random_genome(self):
@@ -352,11 +375,6 @@ class Species:
 
         random_genome = random.choice(list(self.genomes.values()))
         return random_genome.copy()  # This will now use the modified copy method
-
-    def is_same_species(self, genome):
-        #print(f"Checking if genome {genome.id} is in species {self.id}...")
-        distance = genome.calculate_genetic_distance(self.representative)
-        return distance < config["compatibility_threshold"]
 
 class Genome:
     def __init__(self):
@@ -448,7 +466,7 @@ class Genome:
         pass
        
     def mutate(self):
-        print(f"Mutating genome {self.id}...")
+        #print(f"Mutating genome {self.id}...")
         if random.random() < config["gene_add_chance"]:
             self.attempt_connections()
 
@@ -522,11 +540,11 @@ class Genome:
         return self.network
 
     def crossover(self, other_genome):
-        print(f"Crossing over genome {self.id} with genome {other_genome.id}...")
+        #print(f"Crossing over genome {self.id} with genome {other_genome.id}...")
         offspring = Genome()
 
-        genes1 = {gene.innovation_number: gene for gene in self.connection_genes}
-        genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes}
+        genes1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
+        genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
 
         all_innovations = set(genes1.keys()) | set(genes2.keys())
 
@@ -559,9 +577,11 @@ class Genome:
         return offspring
 
     def calculate_genetic_distance(self, other_genome):
-        #print(f"Calculating genetic distance between genome {self.id} and genome {other_genome.id}...")
+        # Convert the dictionary values to a list and sort them
         genes1 = sorted(self.connection_genes.values(), key=lambda g: g.innovation_number)
         genes2 = sorted(other_genome.connection_genes.values(), key=lambda g: g.innovation_number)
+        print(f"genes1: {genes1}")
+        print(f"genes2: {genes2}")
 
         i = j = 0
         disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
@@ -583,10 +603,11 @@ class Genome:
             else:
                 disjoint_genes += 1
                 j += 1
-
+        print(f"Genome {self.id} distance from genome {other_genome.id}: Disjoint genes: {disjoint_genes}, Excess genes: {excess_genes}, Matching genes: {matching_genes}, Weight difference: {weight_diff}, Activation difference: {activation_diff}")
         excess_genes = len(genes1[i:]) + len(genes2[j:])
         weight_diff /= matching_genes if matching_genes else 1
         activation_diff /= matching_genes if matching_genes else 1
+        print(f"Genome {self.id} distance from genome {other_genome.id}: Disjoint genes: {disjoint_genes}, Excess genes: {excess_genes}, Matching genes: {matching_genes}, Weight difference: {weight_diff}, Activation difference: {activation_diff}")
 
         N = max(len(genes1), len(genes2))
         distance = (config["disjoint_coefficient"] * disjoint_genes / N) + (config["excess_coefficient"] * excess_genes / N) + (config["weight_diff_coefficient"] * weight_diff) + (config["activation_diff_coefficient"] * activation_diff)
@@ -646,7 +667,7 @@ class NeuralNetwork(nn.Module):
             genome.network_needs_rebuild = False
         else:
             # Use the existing network from the genome
-            self.load_state_dict(genome.network.state_dict())
+            self.load_state(genome.network.state())
         
         #self.print_neuron_info()
 
