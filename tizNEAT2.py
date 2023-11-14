@@ -1,3 +1,5 @@
+# check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
+
 import multiprocessing
 import random
 import numpy as np
@@ -13,12 +15,12 @@ config = {
     "input_neurons": 24,
     "hidden_neurons": 5,
     "output_neurons": 4,
-    "initial_conn_attempts": 250, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 200, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
     "refractory_factor": 1,
 
     "generations": 10,
-    "population_size": 10,
+    "population_size": 200,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -53,7 +55,7 @@ config = {
     "weight_mutate_factor": 0.5,
     "weight_init_range": (-2, 2),
 
-    "parallelize": False,
+    "parallelize": True,
     "parallelization": 6,
 
     "global_mutation_enable": False,
