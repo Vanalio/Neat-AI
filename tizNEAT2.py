@@ -1,6 +1,3 @@
-# check code for the NeuralNetwork (RNN)
-# check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
-
 import multiprocessing
 import random
 import numpy as np
@@ -14,9 +11,9 @@ import torch.nn as nn
 config = {
 
     "input_neurons": 24,
-    "hidden_neurons": 1,
+    "hidden_neurons": 5,
     "output_neurons": 4,
-    "initial_conn_attempts": 1500, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 250, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
     "refractory_factor": 1,
 
@@ -46,8 +43,8 @@ config = {
     "bias_init_range": (-2, 2),
 
     "activation_mutate_chance": 0.1,
-    "default_hidden_activation": "relu",
-    "default_output_activation": "relu",
+    "default_hidden_activation": "clipped_relu",
+    "default_output_activation": "tanh",
     "relu_clip_at": 1,
 
     "gene_add_chance": 0.02,
@@ -80,29 +77,36 @@ class Population:
             genome = Genome().create()
             self.genomes[genome.id] = genome
 
+    ####################################################################
+    #out.detach().numpy().ravel()
+
     def evaluate_single_genome(self, genome):
         environment = gym.make("BipedalWalker-v3", hardcore=True, render_mode="human")
         environment = gym.wrappers.TimeLimit(environment, max_episode_steps=100)
 
-        neural_network = genome.build_network()
-        observation_tuple = environment.reset()
-        observation = observation_tuple[0]  # Extract the array part of the tuple
-        print("Observation size:", len(observation))
-        print("Observation:", observation)
+        neural_network = NeuralNetwork(genome)
+        observation = environment.reset()  # Get the initial observation
+        if isinstance(observation, tuple):
+            observation = observation[0]  # Extract the array part of the tuple
+        observation = torch.from_numpy(observation).float()  # Convert to PyTorch tensor
+
         done = False
         total_reward = 0
 
         while not done:
-            outputs = neural_network.process_sequence(observation)
-            action = np.array(outputs[-1]).flatten()  # Flatten and convert to NumPy array
-            #print(action)
-            observation, reward, terminated, truncated, info = environment.step(action)  # Use 'action' here
+            action = neural_network(observation)
+            action = action.detach().cpu().numpy().ravel()
+            print("Action values:", action)  # Debug: Print the action values
+            observation, reward, terminated, truncated, info = environment.step(action)
             total_reward += reward
-            #print("Tot. reward:", total_reward, "- Terminated:", terminated, "- Truncated:", truncated)
+
+            observation = torch.from_numpy(observation).float()  # Convert to PyTorch tensor
+
             done = terminated or truncated
 
         environment.close()
         return total_reward
+
 
     def evaluate(self):
         if config["parallelize"]:
@@ -342,7 +346,6 @@ class Genome:
                     attempting_to_layer = 'hidden'
                 elif attempting_from_layer == 'hidden':
                     attempting_to_layer = random.choice(['hidden', 'output'])
-                
                 from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer]
                 to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer]
 
@@ -360,6 +363,8 @@ class Genome:
                 for conn in self.connection_genes.values()
             )
 
+            # Before creating a new connection, log the neurons being connected
+            print(f"Attempting to connect: From Neuron ID {from_neuron.id} (Layer: {from_neuron.layer}) to To Neuron ID {to_neuron.id} (Layer: {to_neuron.layer})")
             # Create connection if it doesn't exist
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
@@ -536,104 +541,100 @@ class NeuronGene:
         new_gene.enabled = self.enabled
         return new_gene
 
-class CustomNetwork(nn.Module):
+class NeuralNetwork(nn.Module):
     def __init__(self, genome):
-        super(CustomNetwork, self).__init__()
+        super(NeuralNetwork, self).__init__()
         self.genome = genome
-        self.neurons = nn.ModuleDict()  # key: neuron id, value: Neuron object
-        self.build_network_from_genome(genome)
+        self.neuron_states = {gene.id: torch.zeros(1) for gene in genome.neuron_genes.values() if gene.enabled}
+        self.weights = None
+        self.biases = None
+        self.input_neuron_mapping = None
 
-    def build_network_from_genome(self, genome):
-        for neuron_id, neuron_gene in genome.neuron_genes.items():
+        # Check if the network needs rebuilding
+        if genome.network_needs_rebuild:
+            # Create the network
+            # Create a mapping for input neuron IDs
+            self.input_neuron_mapping = {neuron_id: idx for idx, neuron_id in enumerate(
+                sorted(neuron_id for neuron_id, neuron in genome.neuron_genes.items() if neuron.layer == 'input'))}
+
+            self._create_network()
+            # Store the newly created network in the genome
+            genome.network = self
+            genome.network_needs_rebuild = False
+        else:
+            # Use the existing network from the genome
+            self.load_state_dict(genome.network.state_dict())
+        
+        self.print_neuron_info()
+
+    def _create_network(self):
+        # Create weights for each connection in the genome
+        self.weights = nn.ParameterDict({
+            f"{gene.from_neuron}_{gene.to_neuron}": nn.Parameter(torch.tensor(gene.weight, dtype=torch.float32))
+            for gene in self.genome.connection_genes.values() if gene.enabled
+        })
+
+        # Create biases for all neurons in the genome
+        self.biases = nn.ParameterDict({
+            f"bias_{gene.id}": nn.Parameter(torch.tensor(gene.bias, dtype=torch.float32))
+            for gene in self.genome.neuron_genes.values() if gene.enabled
+        })
+
+    def print_neuron_info(self):
+        print("Neuron Information Snapshot:")
+        for neuron_id, neuron_gene in self.genome.neuron_genes.items():
             if neuron_gene.enabled:
-                activation_func = self.get_activation_function(neuron_gene.activation)
-                neuron = Neuron(neuron_id, neuron_gene.layer, activation_func, neuron_gene.bias)
-                self.neurons[neuron_id] = neuron
+                bias_key = f"bias_{neuron_id}"
+                bias_value = self.biases[bias_key].item() if bias_key in self.biases else 'No bias'
+                print(f"Neuron ID: {neuron_id}, Layer: {neuron_gene.layer}, Activation: {neuron_gene.activation}, Bias: {bias_value}")
 
-        for conn_gene in genome.connection_genes.values():
-            if conn_gene.enabled:
-                from_neuron = self.neurons[conn_gene.from_neuron]
-                to_neuron = self.neurons[conn_gene.to_neuron]
-                connection = Connection(from_neuron, to_neuron, conn_gene.weight)
-                to_neuron.input_connections.append(connection)
+    def reset_neuron_states(self):
+        # Reset neuron states to zeros at the beginning of each episode or input sequence
+        self.neuron_states = {neuron_id: torch.zeros(1) for neuron_id in self.neuron_states}
 
-    def forward(self, input_data):
-        # Assuming input_data is a dictionary: neuron_id -> value
-        output_values = {}
-        for neuron_id, neuron in self.neurons.items():
-            if neuron.layer == 'input':
-                output_values[neuron_id] = input_data.get(neuron_id, 0)
-            else:
-                output_values[neuron_id] = neuron(output_values)
+    def forward(self, input):
+        # Store the states from the previous time step
+        prev_neuron_states = self.neuron_states.copy()
 
-        # Collect and return output layer values
-        return [output_values[neuron_id] for neuron_id in self.neurons if self.neurons[neuron_id].layer == 'output']
+        # Update neuron states based on input and existing states
+        for gene in self.genome.connection_genes.values():
+            if gene.enabled:
+                weight = self.weights[f"{gene.from_neuron}_{gene.to_neuron}"]
+                from_neuron_id = gene.from_neuron
+                to_neuron_id = gene.to_neuron
 
-    def get_activation_function(self, activation_name):
-        # Define or import your activation functions here
-        # Example: return torch.sigmoid if activation_name == 'sigmoid' else torch.nn.Identity()
-        pass
+                # Check if it's a recurrent connection
+                is_recurrent = to_neuron_id in prev_neuron_states
 
-class Neuron(nn.Module):
-    def __init__(self, neuron_id, layer, activation_function, bias):
-        super(Neuron, self).__init__()
-        self.id = neuron_id
-        self.layer = layer
-        self.activation_function = activation_function
-        self.bias = nn.Parameter(torch.tensor(bias))
-        self.input_connections = nn.ModuleList()  # List of Connection objects
+                if is_recurrent:
+                    # Use the previous state if it's a recurrent connection
+                    from_state = prev_neuron_states[from_neuron_id]
+                else:
+                    # Otherwise, use the current input
+                    input_idx = self.input_neuron_mapping[from_neuron_id]
+                    from_state = input[input_idx]
 
-    def forward(self, input_values):
-        weighted_sum = sum(connection.weight * input_values[connection.from_neuron.id] for connection in self.input_connections) + self.bias
-        return self.activation_function(weighted_sum)
+                # Update the state of the target neuron
+                self.neuron_states[to_neuron_id] += weight * from_state
 
-class Connection(nn.Module):
-    def __init__(self, from_neuron, to_neuron, weight):
-        super(Connection, self).__init__()
-        self.from_neuron = from_neuron
-        self.to_neuron = to_neuron
-        self.weight = nn.Parameter(torch.tensor(weight))
+        # Apply activation functions and biases to updated states
+        for neuron_id in self.neuron_states:
+            neuron_gene = self.genome.neuron_genes[neuron_id]
+            activation_function = getattr(ActivationFunctions, neuron_gene.activation)
 
-class ActivationFunctions:
+            # Apply bias for all neurons
+            bias_key = f"bias_{neuron_id}"
+            if bias_key in self.biases:
+                self.neuron_states[neuron_id] += self.biases[bias_key]
 
-    @staticmethod
-    def get_activation_functions():
-        return [
-            "identity", "relu", "leaky_relu", "clipped_relu",
-            "tanh", "sigmoid", "softplus", "abs"
-        ]
+            # Apply activation function
+            self.neuron_states[neuron_id] = activation_function(self.neuron_states[neuron_id])
 
-    @staticmethod
-    def identity(x):
-        return x
+        # Collect output from output neurons
+        output_neurons = [gene.id for gene in self.genome.neuron_genes.values() if gene.layer == 'output' and gene.enabled]
+        output = torch.cat([self.neuron_states[neuron_id] for neuron_id in output_neurons])
 
-    @staticmethod
-    def relu(x):
-        return np.maximum(0, x)
-
-    @staticmethod
-    def leaky_relu(x):
-        return np.where(x > 0, x, x * 0.01)
-
-    @staticmethod
-    def clipped_relu(x):
-        return np.clip(x, 0, config["relu_clip_at"])
-
-    @staticmethod
-    def tanh(x):
-        return np.tanh(x)
-
-    @staticmethod
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
-
-    @staticmethod
-    def softplus(x):
-        return np.log1p(np.exp(x))
-
-    @staticmethod
-    def abs(x):
-        return np.abs(x)
+        return output
 
 class IdManager:
     _instance = None
@@ -664,6 +665,46 @@ class InnovationManager:
         instance = InnovationManager()
         instance.current_innovation += 1
         return instance.current_innovation
+
+class ActivationFunctions:
+
+    @staticmethod
+    def get_activation_functions():
+        return [
+            "identity", "relu", "leaky_relu", "clipped_relu",
+            "tanh", "sigmoid", "softplus", "abs"
+        ]
+    @staticmethod
+    def identity(x):
+        return x
+
+    @staticmethod
+    def relu(x):
+        return torch.relu(x)
+
+    @staticmethod
+    def leaky_relu(x):
+        return torch.nn.functional.leaky_relu(x)
+
+    @staticmethod
+    def clipped_relu(x, relu_clip_at=1):
+        return torch.clamp(x, min=0, max=relu_clip_at)
+
+    @staticmethod
+    def tanh(x):
+        return torch.tanh(x)
+
+    @staticmethod
+    def sigmoid(x):
+        return torch.sigmoid(x)
+
+    @staticmethod
+    def softplus(x):
+        return torch.nn.functional.softplus(x)
+
+    @staticmethod
+    def abs(x):
+        return torch.abs(x)
 
 class Visualization:
     def __init__(self):
@@ -720,7 +761,7 @@ def NEAT_run():
     species_data = []
     fitness_data = []
     first_genome = next(iter(population.genomes.values()))
-    #dumb_visualize_network(first_genome)
+    dumb_visualize_network(first_genome)
 
     for generation in range(config["generations"]):
     
