@@ -15,12 +15,12 @@ config = {
     "input_neurons": 24,
     "hidden_neurons": 1,
     "output_neurons": 4,
-    "initial_conn_attempts": 50, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 100, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
-    "refractory_factor": 1,
+    "refractory_factor": 0.33,
 
     "generations": 10,
-    "population_size": 10,
+    "population_size": 200,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -55,8 +55,8 @@ config = {
     "weight_mutate_factor": 0.5,
     "weight_init_range": (-2, 2),
 
-    "parallelize": False,
-    "parallelization": 6,
+    "parallelize": True,
+    "parallelization": 8,
 
     "global_mutation_enable": False,
     "global_mutation_chance": 0.5,
@@ -83,7 +83,8 @@ class Population:
     #out.detach().numpy().ravel()
 
     def evaluate_single_genome(self, genome):
-        environment = gym.make("BipedalWalker-v3", hardcore=True, render_mode="human")
+        #environment = gym.make("BipedalWalker-v3", hardcore=True, render_mode="human")
+        environment = gym.make("BipedalWalker-v3", hardcore=True)
         environment = gym.wrappers.TimeLimit(environment, max_episode_steps=100)
 
         neural_network = NeuralNetwork(genome)
@@ -131,6 +132,7 @@ class Population:
         # Assign fitness scores back to genomes
         for genome, fitness in zip(self.genomes.values(), fitness_scores):
             genome.fitness = fitness
+            print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
     ####################################################################
 
     def speciate(self):
@@ -177,6 +179,8 @@ class Population:
         self.best_genome = None
 
         for genome in self.genomes:
+            print(genome)
+            print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
             total_fitness += genome.fitness
             if genome.fitness > self.max_fitness:
                 self.max_fitness = genome.fitness
@@ -239,6 +243,7 @@ class Population:
     def evolve(self):
         self.speciate()
         self.evaluate()
+        print(f"Species count: {len(self.species)}")
         self.prune_species()
         self.assess()
         self.survive_and_reproduce()
@@ -250,7 +255,7 @@ class Species:
         self.elites = {}
         self.representative = None
         self.max_shared_fitness = float('-inf')  # Highest shared fitness in the species
-        self.average_fitness = 0
+        self.average_fitness = float('-inf')
         self.age = 0
         self.generations_without_improvement = 0
 
@@ -298,8 +303,8 @@ class Genome:
         self.connection_genes = {}
         self.network = None
         self.network_needs_rebuild = True
-        self.fitness = 0
-        self.shared_fitness = 0
+        self.fitness = float('-inf')
+        self.shared_fitness = float('-inf')
 
     def create(self):
         self.add_neurons("input", config["input_neurons"])
@@ -367,7 +372,7 @@ class Genome:
             )
 
             # Before creating a new connection, log the neurons being connected
-            print(f"Attempting to connect: From Neuron ID {from_neuron.id} (Layer: {from_neuron.layer}) to To Neuron ID {to_neuron.id} (Layer: {to_neuron.layer})")
+            #print(f"Attempting to connect: From Neuron ID {from_neuron.id} (Layer: {from_neuron.layer}) to To Neuron ID {to_neuron.id} (Layer: {to_neuron.layer})")
             # Create connection if it doesn't exist
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
@@ -598,6 +603,8 @@ class NeuralNetwork(nn.Module):
     def forward(self, input):
         # Store the states from the previous time step
         prev_neuron_states = self.neuron_states.copy()
+        for key in prev_neuron_states:
+            prev_neuron_states[key] *= config["refractory_factor"]
 
         # Update neuron states based on input and existing states
         for gene in self.genome.connection_genes.values():
