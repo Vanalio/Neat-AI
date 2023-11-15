@@ -15,7 +15,7 @@ config = {
     "input_neurons": 24,
     "hidden_neurons": 1,
     "output_neurons": 4,
-    "initial_conn_attempts": 50, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 25, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
     "refractory_factor": 0.33,
 
@@ -29,11 +29,11 @@ config = {
     "weak_threshold": 0.33, # percentage of total average fitness for a species to be considered weak and completely removed
     "keep_best_percentage": 0.33, # percentage of genomes to keep in each species
 
-    "compatibility_threshold": 1.95,
+    "compatibility_threshold": 1.75,
     "distance_adj_factor": 0.1,
     "disjoint_coefficient": 1,
     "excess_coefficient": 1,
-    "weight_diff_coefficient": 5,
+    "weight_diff_coefficient": 1,
     "activation_diff_coefficient": 1,
 
     "allow_interspecies_mating": False,
@@ -262,7 +262,7 @@ class Population:
 
         # Ensure population size is maintained
         while len(next_gen_genomes) < config["population_size"]:
-            next_gen_genomes.append(self.random_species().produce_offspring(1))
+            next_gen_genomes.update(self.random_species().produce_offspring(1))
 
         # Update genomes for the next generation
         self.genomes = {genome.id: genome for genome in next_gen_genomes}
@@ -463,84 +463,7 @@ class Genome:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
                 self.connection_genes[new_connection.id] = new_connection
 
-    def copy(self):
-        pass
-       
-    def mutate(self):
-        #print(f"Mutating genome {self.id}...")
-        if random.random() < config["gene_add_chance"]:
-            self.attempt_connections()
-
-        if random.random() < config["neuron_add_chance"]:
-            self.add_neurons("hidden", 1)
-
-        if random.random() < config["weight_mutate_chance"]:
-            self.mutate_weight()
-
-        if random.random() < config["bias_mutate_chance"]:
-            self.mutate_bias()
-
-        if random.random() < config["activation_mutate_chance"]:
-            self.mutate_activation_function()
-
-        if random.random() < config["gene_toggle_chance"]:
-            self.mutate_gene_toggle()
-
-        if random.random() < config["neuron_toggle_chance"]:
-            self.mutate_neuron_toggle()
-
-        self.network_needs_rebuild = True
-
-    def mutate_weight(self):
-        print(f"Mutating weights for genome {self.id}...")
-        for conn_gene in self.connection_genes.values():
-            if random.random() < config["weight_mutate_factor"]:
-                perturb = random.uniform(-1, 1) * config["weight_mutate_factor"]
-                conn_gene.weight += perturb
-            else:
-                conn_gene.weight = random.uniform(*config["weight_init_range"])
-
-
-    def mutate_bias(self):
-        print(f"Mutating biases for genome {self.id}...")
-        for neuron_gene in self.neuron_genes.values():
-            if random.random() < config["bias_mutate_chance"]:
-                perturb = random.uniform(-1, 1) * config["bias_mutate_factor"]
-                neuron_gene.bias += perturb
-            else:
-                neuron_gene.bias = random.uniform(*config["bias_init_range"])
-
-
-    def mutate_activation_function(self):
-        print(f"Mutating activation functions for genome {self.id}...")
-        available_functions = ActivationFunctions.get_activation_functions()
-
-        for neuron_gene in self.neuron_genes.values():
-            if random.random() < config["activation_mutate_chance"]:
-                neuron_gene.activation = random.choice(available_functions)
-
-
-    def mutate_gene_toggle(self):
-        print(f"Mutating gene toggles for genome {self.id}...")
-        for conn_gene in self.connection_genes.values():
-            if random.random() < config["gene_toggle_chance"]:
-                conn_gene.enabled = not conn_gene.enabled
-
-
-    def mutate_neuron_toggle(self):
-        print(f"Mutating neuron toggles for genome {self.id}...")
-        for neuron_gene in self.neuron_genes.values():
-            if random.random() < config["neuron_toggle_chance"]:
-                neuron_gene.enabled = not neuron_gene.enabled
-
-    def build_network(self):
-        print(f"Building network for genome {self.id}...")
-        if self.network_needs_rebuild:
-            self.network = NeuralNetwork(self)
-            self.network_needs_rebuild = False
-        return self.network
-
-    def crossover(self, other_genome):
+    def  crossover(self, other_genome):
         #print(f"Crossing over genome {self.id} with genome {other_genome.id}...")
         offspring = Genome()
 
@@ -577,35 +500,111 @@ class Genome:
 
         return offspring
 
+    def mutate(self):
+        #print(f"Mutating genome {self.id}...")
+        if random.random() < config["gene_add_chance"]:
+            self.attempt_connections()
+
+        if random.random() < config["neuron_add_chance"]:
+            self.add_neurons("hidden", 1)
+
+        if random.random() < config["weight_mutate_chance"]:
+            self.mutate_weight()
+
+        if random.random() < config["bias_mutate_chance"]:
+            self.mutate_bias()
+
+        if random.random() < config["activation_mutate_chance"]:
+            self.mutate_activation_function()
+
+        if random.random() < config["gene_toggle_chance"]:
+            self.mutate_gene_toggle()
+
+        if random.random() < config["neuron_toggle_chance"]:
+            self.mutate_neuron_toggle()
+
+        self.network_needs_rebuild = True
+
+    def mutate_weight(self):
+        print(f"Mutating weights for genome {self.id}...")
+        for conn_gene in self.connection_genes.values():
+            if random.random() < config["weight_mutate_factor"]:
+                perturb = random.uniform(-1, 1) * config["weight_mutate_factor"]
+                conn_gene.weight += perturb
+            else:
+                conn_gene.weight = random.uniform(*config["weight_init_range"])
+
+    def mutate_bias(self):
+        print(f"Mutating biases for genome {self.id}...")
+        for neuron_gene in self.neuron_genes.values():
+            if random.random() < config["bias_mutate_chance"]:
+                perturb = random.uniform(-1, 1) * config["bias_mutate_factor"]
+                neuron_gene.bias += perturb
+            else:
+                neuron_gene.bias = random.uniform(*config["bias_init_range"])
+
+    def mutate_activation_function(self):
+        print(f"Mutating activation functions for genome {self.id}...")
+        available_functions = ActivationFunctions.get_activation_functions()
+
+        for neuron_gene in self.neuron_genes.values():
+            if random.random() < config["activation_mutate_chance"]:
+                neuron_gene.activation = random.choice(available_functions)
+
+    def mutate_gene_toggle(self):
+        print(f"Mutating gene toggles for genome {self.id}...")
+        for conn_gene in self.connection_genes.values():
+            if random.random() < config["gene_toggle_chance"]:
+                conn_gene.enabled = not conn_gene.enabled
+
+    def mutate_neuron_toggle(self):
+        print(f"Mutating neuron toggles for genome {self.id}...")
+        for neuron_gene in self.neuron_genes.values():
+            if random.random() < config["neuron_toggle_chance"]:
+                neuron_gene.enabled = not neuron_gene.enabled
+
+    def build_network(self):
+        print(f"Building network for genome {self.id}...")
+        if self.network_needs_rebuild:
+            self.network = NeuralNetwork(self)
+            self.network_needs_rebuild = False
+        return self.network
+
     def calculate_genetic_distance(self, other_genome):
-        # Map innovation numbers to genes for each genome
+        # Mapping innovation numbers to genes
         inno_to_gene1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
         inno_to_gene2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
 
-        # Get all unique innovation numbers from both genomes
-        all_innovations = set(inno_to_gene1.keys()) | set(inno_to_gene2.keys())
+        # Highest innovation numbers in each genome
+        max_inno1 = max(inno_to_gene1.keys(), default=0)
+        max_inno2 = max(inno_to_gene2.keys(), default=0)
 
         disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
 
-        # Iterate through all innovation numbers
-        for inno_num in all_innovations:
-            gene1 = inno_to_gene1.get(inno_num)
-            gene2 = inno_to_gene2.get(inno_num)
+        for inno_num in set(inno_to_gene1.keys()).union(inno_to_gene2.keys()):
+            in_gene1 = inno_num in inno_to_gene1
+            in_gene2 = inno_num in inno_to_gene2
 
-            if gene1 and gene2:  # Matching genes
+            if in_gene1 and in_gene2:
+                # Count as matching gene
                 matching_genes += 1
-                weight_diff += abs(gene1.weight - gene2.weight)
-                if self.neuron_genes[gene1.to_neuron].activation != other_genome.neuron_genes[gene2.to_neuron].activation:
-                    activation_diff += 1
-            elif gene1 or gene2:  # Disjoint or excess genes
-                disjoint_genes += 1
+                weight_diff += abs(inno_to_gene1[inno_num].weight - inno_to_gene2[inno_num].weight)
+                activation_diff += inno_to_gene1[inno_num].activation != inno_to_gene2[inno_num].activation
+            elif in_gene1:
+                if inno_num <= max_inno2:
+                    disjoint_genes += 1
+                else:
+                    excess_genes += 1
+            elif in_gene2:
+                if inno_num <= max_inno1:
+                    disjoint_genes += 1
+                else:
+                    excess_genes += 1
 
-        # Calculate excess genes
-        max_inno1 = max(inno_to_gene1.keys(), default=0)
-        max_inno2 = max(inno_to_gene2.keys(), default=0)
-        excess_genes = sum(inno > max_inno2 for inno in inno_to_gene1.keys()) + sum(inno > max_inno1 for inno in inno_to_gene2.keys())
-
-        weight_diff /= matching_genes if matching_genes else 1
+        # Normalize weight and activation differences
+        if matching_genes > 0:
+            weight_diff /= matching_genes
+            activation_diff /= matching_genes
 
         N = max(len(inno_to_gene1), len(inno_to_gene2))
         distance = (config["disjoint_coefficient"] * disjoint_genes / N) + \
@@ -613,8 +612,10 @@ class Genome:
                    (config["weight_diff_coefficient"] * weight_diff) + \
                    (config["activation_diff_coefficient"] * activation_diff)
 
-        print(f"Length of genome 1: {len(inno_to_gene1)}, Length of genome 2: {len(inno_to_gene2)}")
-        print(f"Genome {self.id} vs {other_genome.id}: Disjoint: {disjoint_genes}, Excess: {excess_genes}, Matching: {matching_genes}, Weight: {weight_diff}, Activation: {activation_diff}")
+        #print(f"Length of genome 1: {len(inno_to_gene1)}, Length of genome 2: {len(inno_to_gene2)}")
+        #print(f"Genome {self.id} vs {other_genome.id}: Disjoint: {disjoint_genes}, Excess: {excess_genes}, Matching: {matching_genes}, Weight: {weight_diff}, Activation: {activation_diff}")
+
+        print(f"Genome {self.id} vs {other_genome.id} - Distance: {distance}")
 
         return distance
 
