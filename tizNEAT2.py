@@ -20,14 +20,14 @@ config = {
     "refractory_factor": 0.33,
 
     "generations": 5,
-    "population_size": 40,
+    "population_size": 20,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
     "target_species": 25,
     "min_species": 2,
-    "weak_threshold": 0.33, # percentage of total average fitness for a species to be considered weak and completely removed
-    "keep_best_percentage": 0.33, # percentage of genomes to keep in each species
+    "weak_threshold": 0.5, # percentage of total average fitness for a species to be considered weak and completely removed
+    "keep_best_percentage": 0.5, # percentage of genomes to keep in each species
 
     "compatibility_threshold": 1.75,
     "distance_adj_factor": 0.1,
@@ -242,31 +242,47 @@ class Population:
             print(f"Species ID: {species.id}, Average fitness: {species.average_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}")
 
     def survive_and_reproduce(self):
-        print("Keeping elites, culling, reproducing...")
         next_gen_genomes = {}
+        print("Start of survive_and_reproduce, next_gen_genomes:", next_gen_genomes)
         for species_instance in self.species.values():
-            # Add elites to next generation
+            print(f"Taking species {species_instance.id} elites to the next generation...")
             next_gen_genomes.update(species_instance.elites)
+            print("After adding elites, next_gen_genomes:", next_gen_genomes)
 
-            # Cull species and produce offspring
+        for species_instance in self.species.values():
+            print(f"Culling species {species_instance.id}...")
             species_instance.cull(config["keep_best_percentage"])  # Keep only a portion of the genomes
+
+        for species_instance in self.species.values():
             offspring_count = self.get_offspring_count(species_instance)
-            print(f"Species {species_instance.id} offspring count: {offspring_count}")
             offspring = species_instance.produce_offspring(offspring_count)
+            # Check if offspring is a dictionary of Genome objects
+            if not all(isinstance(genome, Genome) for genome in offspring.values()):
+                raise TypeError("produce_offspring did not return a dictionary of Genome objects")
             next_gen_genomes.update(offspring)
+            print("After offspring, next_gen_genomes:", next_gen_genomes)
 
         # Handle interspecies offspring
         if config["allow_interspecies_mating"]:
             interspecies_offspring = self.produce_interspecies_offspring()
+            # Check if interspecies_offspring is a dictionary of Genome objects
+            if not all(isinstance(genome, Genome) for genome in interspecies_offspring.values()):
+                raise TypeError("produce_interspecies_offspring did not return a dictionary of Genome objects")
             next_gen_genomes.extend(interspecies_offspring)
+            print("After interspecies offspring, next_gen_genomes:", next_gen_genomes)
 
         # Ensure population size is maintained
         while len(next_gen_genomes) < config["population_size"]:
             next_gen_genomes.update(self.random_species().produce_offspring(1))
+        print("After random species offspring, next_gen_genomes:", next_gen_genomes)
+
+        # Check if next_gen_genomes is a dictionary of Genome objects
+        if not all(isinstance(genome, Genome) for genome in next_gen_genomes.values()):
+            raise TypeError("next_gen_genomes does not contain only Genome objects")
 
         # Update genomes for the next generation
-        self.genomes = {genome.id: genome for genome in next_gen_genomes}
-
+        print(f"Before updating genomes, next_gen_genomes: {next_gen_genomes}")
+        self.genomes = {genome.id: genome for genome in next_gen_genomes.values()}
 
     def get_offspring_count(self, species):
         #print("Getting offspring count...")
@@ -342,31 +358,36 @@ class Species:
 
         # Sort genomes by fitness and update genomes dictionary
         sorted_genomes = sorted(self.genomes.values(), key=lambda genome: genome.fitness, reverse=True)
-        cutoff = int(len(sorted_genomes) * keep_best_percentage)
+        
+        # Calculate cutoff, ensuring at least one genome is kept
+        cutoff = max(1, int(len(sorted_genomes) * keep_best_percentage))
+        
         self.genomes = {genome.id: genome for genome in sorted_genomes[:cutoff]}
         print(f"Culled a total of {len(sorted_genomes) - len(self.genomes)} genomes from species {self.id}")
 
+
     def produce_offspring(self, offspring_count=1):
-        print(f"Producing offspring for species {self.id}...")
+        print(f"Producing {offspring_count} offspring(s) for species {self.id}...")
         offspring = {}
         for _ in range(offspring_count):
             if len(self.genomes) > 1:
-                print(f"Species {self.id} has {len(self.genomes)} members")
                 # If there are at least two members, randomly select two different parents
                 parent1, parent2 = random.sample(list(self.genomes.values()), 2)
+                print(f"Species {self.id} has {len(self.genomes)} members, crossing over genomes {parent1.id} and {parent2.id}...")
+                new_genome = parent1.crossover(parent2)
             elif self.genomes:
-                print(f"Species {self.id} has only one member")
+                print(f"Species {self.id} has only one member, copying the genome...")
                 # If there is only one member, use it as both parents
-                parent1 = parent2 = next(iter(self.genomes.values()))
+                parent = next(iter(self.genomes.values()))
+                new_genome = parent.copy()
             else:
-                print(f"Species {self.id} has no members")
                 # If there are no members in the species, skip this iteration
                 print(f"No members in species {self.id} to produce offspring")
-                break
+                continue
 
-            child = parent1.crossover(parent2)
-            child.mutate()
-            offspring[child.id] = child
+            new_genome.mutate()
+            offspring[new_genome.id] = new_genome
+
         return offspring
 
     def random_genome(self):
@@ -497,6 +518,20 @@ class Genome:
 
             if offspring_gene:
                 offspring.connection_genes[offspring_gene.id] = offspring_gene
+
+        # Inherit neuron genes
+        neurons_to_inherit = set()
+        for cg in offspring.connection_genes.values():
+            neurons_to_inherit.add(cg.from_neuron)
+            neurons_to_inherit.add(cg.to_neuron)
+
+        for neuron_id in neurons_to_inherit:
+            neuron1 = self.neuron_genes.get(neuron_id)
+            neuron2 = other_genome.neuron_genes.get(neuron_id)
+
+            if neuron1 or neuron2:
+                neuron_to_add = neuron1.copy() if neuron1 else neuron2.copy()
+                offspring.neuron_genes[neuron_to_add.id] = neuron_to_add
 
         return offspring
 
