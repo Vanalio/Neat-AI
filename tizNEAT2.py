@@ -13,12 +13,12 @@ config = {
     "input_neurons": 24,
     "hidden_neurons": 1,
     "output_neurons": 4,
-    "initial_conn_attempts": 25, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
+    "initial_conn_attempts": 1200, # max possible connections = hidden_neurons * (input_neurons + hidden_neurons + output_neurons)
     "attempts_to_max_factor": 5,
     "refractory_factor": 0.33,
 
     "generations": 5,
-    "population_size": 5,
+    "population_size": 50,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -245,7 +245,7 @@ class Population:
         for species_instance in self.species.values():
             print(f"Taking species {species_instance.id} elites to the next generation...")
             next_gen_genomes.update(species_instance.elites)
-            print("After adding elites, next_gen_genomes:", next_gen_genomes)
+            #print("After adding elites, next_gen_genomes:", next_gen_genomes)
 
         for species_instance in self.species.values():
             print(f"Culling species {species_instance.id}...")
@@ -258,7 +258,7 @@ class Population:
             if not all(isinstance(genome, Genome) for genome in offspring.values()):
                 raise TypeError("produce_offspring did not return a dictionary of Genome objects")
             next_gen_genomes.update(offspring)
-            print("After offspring, next_gen_genomes:", next_gen_genomes)
+            #print("After offspring, next_gen_genomes:", next_gen_genomes)
 
         # Handle interspecies offspring
         if config["allow_interspecies_mating"]:
@@ -267,19 +267,19 @@ class Population:
             if not all(isinstance(genome, Genome) for genome in interspecies_offspring.values()):
                 raise TypeError("produce_interspecies_offspring did not return a dictionary of Genome objects")
             next_gen_genomes.extend(interspecies_offspring)
-            print("After interspecies offspring, next_gen_genomes:", next_gen_genomes)
+            #print("After interspecies offspring, next_gen_genomes:", next_gen_genomes)
 
         # Ensure population size is maintained
         while len(next_gen_genomes) < config["population_size"]:
             next_gen_genomes.update(self.random_species().produce_offspring(1))
-        print("After random species offspring, next_gen_genomes:", next_gen_genomes)
+        #print("After random species offspring, next_gen_genomes:", next_gen_genomes)
 
         # Check if next_gen_genomes is a dictionary of Genome objects
         if not all(isinstance(genome, Genome) for genome in next_gen_genomes.values()):
             raise TypeError("next_gen_genomes does not contain only Genome objects")
 
         # Update genomes for the next generation
-        print(f"Before updating genomes, next_gen_genomes: {next_gen_genomes}")
+        #print(f"Before updating genomes, next_gen_genomes: {next_gen_genomes}")
         self.genomes = {genome.id: genome for genome in next_gen_genomes.values()}
 
     def get_offspring_count(self, species):
@@ -590,8 +590,11 @@ class Genome:
     def mutate_neuron_toggle(self):
         print(f"Mutating neuron toggles for genome {self.id}...")
         for neuron_gene in self.neuron_genes.values():
-            if random.random() < config["neuron_toggle_chance"]:
-                neuron_gene.enabled = not neuron_gene.enabled
+            # Check if the neuron is a hidden neuron
+            if neuron_gene.layer == 'hidden':
+                if random.random() < config["neuron_toggle_chance"]:
+                    neuron_gene.enabled = not neuron_gene.enabled
+                    print(f"Toggled neuron {neuron_gene.id}, new state: {'enabled' if neuron_gene.enabled else 'disabled'}")
 
     def build_network(self):
         print(f"Building network for genome {self.id}...")
@@ -646,9 +649,9 @@ class Genome:
 
         N = max(len(inno_to_conn_gene1), len(inno_to_conn_gene2))
         distance = (config["disjoint_coefficient"] * disjoint_genes / N) + \
-                (config["excess_coefficient"] * excess_genes / N) + \
-                (config["weight_diff_coefficient"] * weight_diff) + \
-                (config["activation_diff_coefficient"] * activation_diff)
+                   (config["excess_coefficient"] * excess_genes / N) + \
+                   (config["weight_diff_coefficient"] * weight_diff) + \
+                   (config["activation_diff_coefficient"] * activation_diff)
 
         print(f"Genome {self.id} vs {other_genome.id} - Distance: {distance}")
 
@@ -695,6 +698,7 @@ class NeuralNetwork(nn.Module):
         self.neuron_states = {gene.id: torch.zeros(1) for gene in genome.neuron_genes.values() if gene.enabled}
         self.weights = None
         self.biases = None
+        self.input_neuron_mapping = None
 
         """# Check if the network needs rebuilding
         #if genome.network_needs_rebuild:
@@ -724,27 +728,27 @@ class NeuralNetwork(nn.Module):
                 )
             )
         }
-        print("Input Neuron Mapping:", self.input_neuron_mapping)
+        #print("Input Neuron Mapping:", self.input_neuron_mapping)
         input_neuron_ids = [neuron_id for neuron_id, neuron in self.genome.neuron_genes.items() if neuron.layer == 'input' and neuron.enabled]
-        print("Input Neurons in Genome:", input_neuron_ids)
+        #print("Input Neurons in Genome:", input_neuron_ids)
 
         self._create_network()
-        print(f"Neural network created for genome {genome.id}")
-        print("Neuron States:", self.neuron_states)
-        print("Weights:", self.weights)
-        print("Biases:", self.biases)
-        print("Neuron Genes:", self.genome.neuron_genes)
-        print("Connection Genes:", self.genome.connection_genes)
-        print("Input Neuron Mapping:", self.input_neuron_mapping)
-        print("Input Neurons in Genome:", input_neuron_ids)
-        print("Input Neurons in Network:", self.input_neuron_mapping.keys())
-        print("Output Neurons in Network:", [gene.id for gene in self.genome.neuron_genes.values() if gene.layer == 'output' and gene.enabled])
-        print("Network:", self)
-        print("Network:", self.genome.network)
+        #print(f"Neural network created for genome {genome.id}")
+        #print("Neuron States:", self.neuron_states)
+        #print("Weights:", self.weights)
+        #print("Biases:", self.biases)
+        #print("Neuron Genes:", self.genome.neuron_genes)
+        #print("Connection Genes:", self.genome.connection_genes)
+        #print("Input Neuron Mapping:", self.input_neuron_mapping)
+        #print("Input Neurons in Genome:", input_neuron_ids)
+        #print("Input Neurons in Network:", self.input_neuron_mapping.keys())
+        #print("Output Neurons in Network:", [gene.id for gene in self.genome.neuron_genes.values() if gene.layer == 'output' and gene.enabled])
+        #print("Network:", self)
+        #print("Network:", self.genome.network)
 
         # Store the newly created network in the genome
         genome.network = self
-        self.print_neuron_info()
+        #self.print_neuron_info()
 
     def _create_network(self):
         # Create weights for each connection in the genome
@@ -768,58 +772,42 @@ class NeuralNetwork(nn.Module):
                 print(f"Neuron ID: {neuron_id}, Layer: {neuron_gene.layer}, Activation: {neuron_gene.activation}, Bias: {bias_value}")
 
     def reset_neuron_states(self):
-        # Reset neuron states to zeros at the beginning of each episode or input sequence
-        self.neuron_states = {neuron_id: torch.zeros(1) for neuron_id in self.neuron_states}
+        # Initialize states for all neurons (input, hidden, output) that are part of the network
+        self.neuron_states = {neuron_id: torch.zeros(1) for neuron_id, neuron in self.genome.neuron_genes.items() if neuron.enabled}
+
 
     def forward(self, input):
         if input.shape[0] != len(self.input_neuron_mapping):
             raise ValueError(f"Input size mismatch. Expected {len(self.input_neuron_mapping)}, got {input.shape[0]}")
 
-        # Check for all necessary neuron IDs
-        for from_neuron_id in [conn_gene.from_neuron for conn_gene in self.genome.connection_genes.values() if conn_gene.enabled]:
-            if from_neuron_id not in self.input_neuron_mapping:
-                raise KeyError(f"Neuron ID {from_neuron_id} not found in input_neuron_mapping")
-        # Store the states from the previous time step
-        prev_neuron_states = self.neuron_states.copy()
-        for key in prev_neuron_states:
-            prev_neuron_states[key] *= config["refractory_factor"]
+        # Reset neuron states
+        self.reset_neuron_states()
 
-        # Update neuron states based on input and existing states
+        # Update input neurons' states
+        for neuron_id, idx in self.input_neuron_mapping.items():
+            self.neuron_states[neuron_id] = input[idx]
+
+        # Process connections and update neuron states
         for gene in self.genome.connection_genes.values():
             if gene.enabled:
                 weight = self.weights[f"{gene.from_neuron}_{gene.to_neuron}"]
                 from_neuron_id = gene.from_neuron
                 to_neuron_id = gene.to_neuron
 
-                # Check if it's a recurrent connection
-                is_recurrent = to_neuron_id in prev_neuron_states
-
-                if is_recurrent:
-                    # Use the previous state if it's a recurrent connection
-                    from_state = prev_neuron_states[from_neuron_id]
-                else:
-                    # Otherwise, use the current input
-                    input_idx = self.input_neuron_mapping[from_neuron_id]
-                    from_state = input[input_idx]
-
                 # Update the state of the target neuron
-                self.neuron_states[to_neuron_id] += weight * from_state
+                self.neuron_states[to_neuron_id] += weight * self.neuron_states[from_neuron_id]
 
-        # Apply activation functions and biases to updated states
-        for neuron_id in self.neuron_states:
-            neuron_gene = self.genome.neuron_genes[neuron_id]
-            activation_function = getattr(ActivationFunctions, neuron_gene.activation)
+        # Apply activation functions and biases
+        for neuron_id, neuron_gene in self.genome.neuron_genes.items():
+            if neuron_gene.enabled:
+                activation_function = getattr(ActivationFunctions, neuron_gene.activation)
+                bias_key = f"bias_{neuron_id}"
+                if bias_key in self.biases:
+                    self.neuron_states[neuron_id] = self.neuron_states[neuron_id] + self.biases[bias_key]
+                self.neuron_states[neuron_id] = activation_function(self.neuron_states[neuron_id])
 
-            # Apply bias for all neurons
-            bias_key = f"bias_{neuron_id}"
-            if bias_key in self.biases:
-                self.neuron_states[neuron_id] += self.biases[bias_key]
-
-            # Apply activation function
-            self.neuron_states[neuron_id] = activation_function(self.neuron_states[neuron_id])
-
-        # Collect output from output neurons
-        output_neurons = [gene.id for gene in self.genome.neuron_genes.values() if gene.layer == 'output' and gene.enabled]
+        # Extract output from output neurons
+        output_neurons = [neuron_id for neuron_id in self.neuron_states if self.genome.neuron_genes[neuron_id].layer == 'output']
         output = torch.cat([self.neuron_states[neuron_id] for neuron_id in output_neurons])
 
         return output
