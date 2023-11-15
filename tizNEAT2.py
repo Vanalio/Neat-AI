@@ -1,5 +1,3 @@
-# check wich object we are keeping between generations, like previous instance of genomes, species, networks, neurons, connections, genes, etc... and which of these must be deleted to free memory
-
 import multiprocessing
 import random
 import numpy as np
@@ -20,7 +18,7 @@ config = {
     "refractory_factor": 0.33,
 
     "generations": 5,
-    "population_size": 20,
+    "population_size": 5,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -421,9 +419,6 @@ class Genome:
     def copy(self):
         print(f"Copying genome {self.id}...")
         new_genome = Genome()  # Creates a new genome with a new ID
-        new_genome.network_needs_rebuild = self.network_needs_rebuild
-        new_genome.fitness = self.fitness
-        new_genome.shared_fitness = self.shared_fitness
 
         # Copying all neuron genes
         for neuron_id, neuron_gene in self.neuron_genes.items():
@@ -606,25 +601,25 @@ class Genome:
         return self.network
 
     def calculate_genetic_distance(self, other_genome):
-        # Mapping innovation numbers to genes
-        inno_to_gene1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
-        inno_to_gene2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
+        # Mapping innovation numbers to connection genes
+        inno_to_conn_gene1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
+        inno_to_conn_gene2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
 
         # Highest innovation numbers in each genome
-        max_inno1 = max(inno_to_gene1.keys(), default=0)
-        max_inno2 = max(inno_to_gene2.keys(), default=0)
+        max_inno1 = max(inno_to_conn_gene1.keys(), default=0)
+        max_inno2 = max(inno_to_conn_gene2.keys(), default=0)
 
         disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
 
-        for inno_num in set(inno_to_gene1.keys()).union(inno_to_gene2.keys()):
-            in_gene1 = inno_num in inno_to_gene1
-            in_gene2 = inno_num in inno_to_gene2
+        # Calculate genetic distance based on connection genes
+        for inno_num in set(inno_to_conn_gene1.keys()).union(inno_to_conn_gene2.keys()):
+            in_gene1 = inno_num in inno_to_conn_gene1
+            in_gene2 = inno_num in inno_to_conn_gene2
 
             if in_gene1 and in_gene2:
                 # Count as matching gene
                 matching_genes += 1
-                weight_diff += abs(inno_to_gene1[inno_num].weight - inno_to_gene2[inno_num].weight)
-                activation_diff += inno_to_gene1[inno_num].activation != inno_to_gene2[inno_num].activation
+                weight_diff += abs(inno_to_conn_gene1[inno_num].weight - inno_to_conn_gene2[inno_num].weight)
             elif in_gene1:
                 if inno_num <= max_inno2:
                     disjoint_genes += 1
@@ -636,19 +631,24 @@ class Genome:
                 else:
                     excess_genes += 1
 
+        # Calculate genetic distance based on neuron activation functions
+        for neuron_id in set(self.neuron_genes.keys()).union(other_genome.neuron_genes.keys()):
+            neuron1 = self.neuron_genes.get(neuron_id)
+            neuron2 = other_genome.neuron_genes.get(neuron_id)
+
+            if neuron1 and neuron2:
+                activation_diff += neuron1.activation != neuron2.activation
+
         # Normalize weight and activation differences
         if matching_genes > 0:
             weight_diff /= matching_genes
             activation_diff /= matching_genes
 
-        N = max(len(inno_to_gene1), len(inno_to_gene2))
+        N = max(len(inno_to_conn_gene1), len(inno_to_conn_gene2))
         distance = (config["disjoint_coefficient"] * disjoint_genes / N) + \
-                   (config["excess_coefficient"] * excess_genes / N) + \
-                   (config["weight_diff_coefficient"] * weight_diff) + \
-                   (config["activation_diff_coefficient"] * activation_diff)
-
-        #print(f"Length of genome 1: {len(inno_to_gene1)}, Length of genome 2: {len(inno_to_gene2)}")
-        #print(f"Genome {self.id} vs {other_genome.id}: Disjoint: {disjoint_genes}, Excess: {excess_genes}, Matching: {matching_genes}, Weight: {weight_diff}, Activation: {activation_diff}")
+                (config["excess_coefficient"] * excess_genes / N) + \
+                (config["weight_diff_coefficient"] * weight_diff) + \
+                (config["activation_diff_coefficient"] * activation_diff)
 
         print(f"Genome {self.id} vs {other_genome.id} - Distance: {distance}")
 
@@ -695,24 +695,56 @@ class NeuralNetwork(nn.Module):
         self.neuron_states = {gene.id: torch.zeros(1) for gene in genome.neuron_genes.values() if gene.enabled}
         self.weights = None
         self.biases = None
-        self.input_neuron_mapping = None
 
-        # Check if the network needs rebuilding
-        if genome.network_needs_rebuild:
+        """# Check if the network needs rebuilding
+        #if genome.network_needs_rebuild:
             # Create the network
             # Create a mapping for input neuron IDs
-            self.input_neuron_mapping = {neuron_id: idx for idx, neuron_id in enumerate(
-                sorted(neuron_id for neuron_id, neuron in genome.neuron_genes.items() if neuron.layer == 'input'))}
+            #self.input_neuron_mapping = {neuron_id: idx for idx, neuron_id in enumerate(
+                #sorted(neuron_id for neuron_id, neuron in genome.neuron_genes.items() if neuron.layer == 'input' and neuron.enabled))}
 
-            self._create_network()
+            #self._create_network()
+            #print(f"Neural network created for genome {genome.id}")
             # Store the newly created network in the genome
-            genome.network = self
-            genome.network_needs_rebuild = False
-        else:
-            # Use the existing network from the genome
-            self.load_state(genome.network.state())
-        
-        #self.print_neuron_info()
+            #genome.network = self
+            # workaround for the network not being reloadable
+            #genome.network_needs_rebuild = True
+        #else:
+            # Use the existing network from the genome"""
+
+        # Create the network
+        # Create a mapping for input neuron IDs
+        self.input_neuron_mapping = {
+            neuron_id: idx 
+            for idx, neuron_id in enumerate(
+                sorted(
+                    neuron_id 
+                    for neuron_id, neuron in genome.neuron_genes.items() 
+                    if neuron.layer == 'input' and neuron.enabled
+                )
+            )
+        }
+        print("Input Neuron Mapping:", self.input_neuron_mapping)
+        input_neuron_ids = [neuron_id for neuron_id, neuron in self.genome.neuron_genes.items() if neuron.layer == 'input' and neuron.enabled]
+        print("Input Neurons in Genome:", input_neuron_ids)
+
+        self._create_network()
+        print(f"Neural network created for genome {genome.id}")
+        print("Neuron States:", self.neuron_states)
+        print("Weights:", self.weights)
+        print("Biases:", self.biases)
+        print("Neuron Genes:", self.genome.neuron_genes)
+        print("Connection Genes:", self.genome.connection_genes)
+        print("Input Neuron Mapping:", self.input_neuron_mapping)
+        print("Input Neurons in Genome:", input_neuron_ids)
+        print("Input Neurons in Network:", self.input_neuron_mapping.keys())
+        print("Output Neurons in Network:", [gene.id for gene in self.genome.neuron_genes.values() if gene.layer == 'output' and gene.enabled])
+        print("Network:", self)
+        print("Network:", self.genome.network)
+
+        # Store the newly created network in the genome
+        genome.network = self
+        self.print_neuron_info()
 
     def _create_network(self):
         # Create weights for each connection in the genome
@@ -740,6 +772,13 @@ class NeuralNetwork(nn.Module):
         self.neuron_states = {neuron_id: torch.zeros(1) for neuron_id in self.neuron_states}
 
     def forward(self, input):
+        if input.shape[0] != len(self.input_neuron_mapping):
+            raise ValueError(f"Input size mismatch. Expected {len(self.input_neuron_mapping)}, got {input.shape[0]}")
+
+        # Check for all necessary neuron IDs
+        for from_neuron_id in [conn_gene.from_neuron for conn_gene in self.genome.connection_genes.values() if conn_gene.enabled]:
+            if from_neuron_id not in self.input_neuron_mapping:
+                raise KeyError(f"Neuron ID {from_neuron_id} not found in input_neuron_mapping")
         # Store the states from the previous time step
         prev_neuron_states = self.neuron_states.copy()
         for key in prev_neuron_states:
@@ -913,6 +952,7 @@ def NEAT_run():
     dumb_visualize_network(first_genome)
 
     for generation in range(config["generations"]):
+        print(f"Generation {generation}...")
     
         population.evolve()
     
