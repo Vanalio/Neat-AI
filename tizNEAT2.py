@@ -20,7 +20,7 @@ config = {
     "refractory_factor": 0.33,
 
     "generations": 5,
-    "population_size": 20,
+    "population_size": 40,
 
     "elites_per_species": 2,
     "max_stagnation": 20,
@@ -578,51 +578,42 @@ class Genome:
         return offspring
 
     def calculate_genetic_distance(self, other_genome):
-        genes1 = sorted(self.connection_genes.values(), key=lambda g: g.innovation_number)
-        genes2 = sorted(other_genome.connection_genes.values(), key=lambda g: g.innovation_number)
+        # Map innovation numbers to genes for each genome
+        inno_to_gene1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
+        inno_to_gene2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
 
-        i = j = 0
+        # Get all unique innovation numbers from both genomes
+        all_innovations = set(inno_to_gene1.keys()) | set(inno_to_gene2.keys())
+
         disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
 
-        max_inno_gene1 = genes1[-1].innovation_number if genes1 else 0
-        max_inno_gene2 = genes2[-1].innovation_number if genes2 else 0
+        # Iterate through all innovation numbers
+        for inno_num in all_innovations:
+            gene1 = inno_to_gene1.get(inno_num)
+            gene2 = inno_to_gene2.get(inno_num)
 
-        while i < len(genes1) or j < len(genes2):
-            # Check if we have reached the end of either list
-            if i == len(genes1):
-                excess_genes += len(genes2) - j
-                break
-            if j == len(genes2):
-                excess_genes += len(genes1) - i
-                break
-
-            gene1 = genes1[i]
-            gene2 = genes2[j]
-
-            if gene1.innovation_number == gene2.innovation_number:
+            if gene1 and gene2:  # Matching genes
                 matching_genes += 1
                 weight_diff += abs(gene1.weight - gene2.weight)
                 if self.neuron_genes[gene1.to_neuron].activation != other_genome.neuron_genes[gene2.to_neuron].activation:
                     activation_diff += 1
-                i += 1
-                j += 1
-            elif gene1.innovation_number < gene2.innovation_number:
+            elif gene1 or gene2:  # Disjoint or excess genes
                 disjoint_genes += 1
-                i += 1
-            else:
-                disjoint_genes += 1
-                j += 1
+
+        # Calculate excess genes
+        max_inno1 = max(inno_to_gene1.keys(), default=0)
+        max_inno2 = max(inno_to_gene2.keys(), default=0)
+        excess_genes = sum(inno > max_inno2 for inno in inno_to_gene1.keys()) + sum(inno > max_inno1 for inno in inno_to_gene2.keys())
 
         weight_diff /= matching_genes if matching_genes else 1
-        activation_diff /= matching_genes if matching_genes else 1
 
-        N = max(len(genes1), len(genes2))
+        N = max(len(inno_to_gene1), len(inno_to_gene2))
         distance = (config["disjoint_coefficient"] * disjoint_genes / N) + \
-                (config["excess_coefficient"] * excess_genes / N) + \
-                (config["weight_diff_coefficient"] * weight_diff) + \
-                (config["activation_diff_coefficient"] * activation_diff)
+                   (config["excess_coefficient"] * excess_genes / N) + \
+                   (config["weight_diff_coefficient"] * weight_diff) + \
+                   (config["activation_diff_coefficient"] * activation_diff)
 
-        print(f"Lenght of genes1: {len(genes1)}, Lenght of genes2: {len(genes2)}")
+        print(f"Length of genome 1: {len(inno_to_gene1)}, Length of genome 2: {len(inno_to_gene2)}")
         print(f"Genome {self.id} vs {other_genome.id}: Disjoint: {disjoint_genes}, Excess: {excess_genes}, Matching: {matching_genes}, Weight: {weight_diff}, Activation: {activation_diff}")
 
         return distance
