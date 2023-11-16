@@ -1,6 +1,5 @@
 import random
-import matplotlib.pyplot as plt
-import networkx as nx
+import multiprocessing
 import gymnasium as gym
 import pickle
 import torch
@@ -8,9 +7,9 @@ import torch.nn as nn
 
 import configparser
 import re
-import ActivationFunctions
-from Managers import IdManager, InnovationManager
-from Visualization import simple_plot
+from activation_functions import ActivationFunctions as activation_functions
+from managers import IdManager, InnovationManager
+from visualization import simple_plot, visualize_genome
 
 class Config:
     def __init__(self, filename, section="DEFAULT"):
@@ -575,7 +574,7 @@ class Genome:
 
     def mutate_activation_function(self):
         print(f"Mutating activation functions for genome {self.id}...")
-        available_functions = ActivationFunctions.get_activation_functions()
+        available_functions = activation_functions.get_activation_functions()
 
         for neuron_gene in self.neuron_genes.values():
             if random.random() < config.activation_mutate_chance:
@@ -800,7 +799,7 @@ class NeuralNetwork(nn.Module):
         # Apply activation functions and biases
         for neuron_id, neuron_gene in self.genome.neuron_genes.items():
             if neuron_gene.enabled:
-                activation_function = getattr(ActivationFunctions, neuron_gene.activation)
+                activation_function = getattr(activation_functions, neuron_gene.activation)
                 bias_key = f"bias_{neuron_id}"
                 if bias_key in self.biases:
                     self.neuron_states[neuron_id] = self.neuron_states[neuron_id] + self.biases[bias_key]
@@ -812,41 +811,12 @@ class NeuralNetwork(nn.Module):
 
         return output
 
-def dumb_visualize_network(genome):
-    # Create a directed graph
-    G = nx.DiGraph()
-
-    # Add nodes with different styles for different types of neurons
-    for neuron_id, neuron_gene in genome.neuron_genes.items():
-        if neuron_gene.enabled:
-            if neuron_gene.layer == "input":
-                G.add_node(neuron_id, color="skyblue", style="filled", shape="circle")
-            elif neuron_gene.layer == "output":
-                G.add_node(neuron_id, color="lightgreen", style="filled", shape="circle")
-            else:  # hidden
-                G.add_node(neuron_id, color="lightgrey", style="filled", shape="circle")
-
-    # Add edges
-    for _, conn_gene in genome.connection_genes.items():
-        if conn_gene.enabled:
-            G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight)
-
-    # Choose a layout for the network
-    pos = nx.stochastic_graph(G, weight="weight", scale=1)
-
-    # Draw nodes and edges
-    nx.draw(G, pos, with_labels=True, node_color=[G.nodes[node]["color"] for node in G.nodes], edge_color="black", width=1, linewidths=1, node_size=500, alpha=0.9)
-    
-    # Show the plot
-    plt.show()
-
 def neat():
     population = Population(first=True)
-    visualizer = Visualization()
     species_data = []
     fitness_data = []
     first_genome = next(iter(population.genomes.values()))
-    dumb_visualize_network(first_genome)
+    visualize_genome(first_genome)
 
     for generation in range(config.generations):
         print(f"Generation {generation}...")
@@ -855,15 +825,15 @@ def neat():
     
         species_data.append(len(population.species))
         fitness_data.append(population.max_fitness)
-        visualizer.simple_plot(species_data, "Species", "Generations")
-        visualizer.simple_plot(fitness_data, "Max fitness", "Generations")
+        simple_plot(species_data, "Species", "Generations")
+        simple_plot(fitness_data, "Max fitness", "Generations")
     
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"population_gen_{generation}.pkl")
     
     population.save_genomes_to_file("final_population.pkl")
-    visualizer.visualize_network(population.best_genome)
-    print("Objects created:", InnovationManager.get_new_innovation_number())
+    #visualize_network(population.best_genome)
+    print("Total ID generated:", IdManager.get_new_innovation_number())
 
 config = Config("config.ini", "DEFAULT")
 
