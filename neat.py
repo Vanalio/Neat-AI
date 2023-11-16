@@ -4,13 +4,13 @@ import gymnasium as gym
 import pickle
 import torch
 import torch.nn as nn
+import configparser
+import re
 
+# custom imports
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager, InnovationManager
 from visualization import simple_plot, visualize_genome
-
-import configparser
-import re
 
 class Config:
     def __init__(self, filename, section="DEFAULT"):
@@ -833,7 +833,7 @@ def neat():
             population.save_genomes_to_file(f"population_gen_{generation}.pkl")
     
     population.save_genomes_to_file("final_population.pkl")
-    #visualize_network(population.best_genome)
+    visualize_genome(population.best_genome)
     print("Total ID generated:", IdManager.get_new_innovation_number())
 
 config = Config("config.ini", "DEFAULT")

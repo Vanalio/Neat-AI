@@ -1,3 +1,6 @@
+# Classes for managing ids and innovation numbers
+
+
 class IdManager:
     _instance = None
 
@@ -12,6 +15,7 @@ class IdManager:
         instance = IdManager()
         instance.current_id += 1
         return instance.current_id
+
 
 class InnovationManager:
     _instance = None

@@ -1,5 +1,9 @@
+# Functions for results visualization
+
+
 import matplotlib.pyplot as plt
 import networkx as nx
+
 
 def simple_plot(data, title=None, xlabel=None, ylabel=None):
     plt.plot(data)
@@ -7,6 +11,7 @@ def simple_plot(data, title=None, xlabel=None, ylabel=None):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.show()
+
 
 def visualize_genome(genome):
     G = nx.DiGraph()
@@ -26,13 +31,24 @@ def visualize_genome(genome):
     # Add edges
     for _, conn_gene in genome.connection_genes.items():
         if conn_gene.enabled:
-            G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight)
+            G.add_edge(
+                conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight
+            )
 
     # Layout
     pos = nx.spring_layout(G)  # This layout can be adjusted for better visualization
 
     # Draw
-    nx.draw(G, pos, with_labels=True, node_color=[G.nodes[node]["color"] for node in G.nodes],
-            edge_color="black", width=1, linewidths=1, node_size=500, alpha=0.9)
+    nx.draw(
+        G,
+        pos,
+        with_labels=True,
+        node_color=[G.nodes[node]["color"] for node in G.nodes],
+        edge_color="black",
+        width=1,
+        linewidths=1,
+        node_size=500,
+        alpha=0.9,
+    )
 
     plt.show()
