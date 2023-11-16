@@ -5,11 +5,12 @@ import pickle
 import torch
 import torch.nn as nn
 
-import configparser
-import re
-from activation_functions import ActivationFunctions as activation_functions
+from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager, InnovationManager
 from visualization import simple_plot, visualize_genome
+
+import configparser
+import re
 
 class Config:
     def __init__(self, filename, section="DEFAULT"):
