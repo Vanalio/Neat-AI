@@ -7,11 +7,10 @@ import torch
 import torch.nn as nn
 
 import configparser
-import ActivationFunctions
-import Visualization
-
-import configparser
 import re
+import ActivationFunctions
+from Managers import IdManager, InnovationManager
+from Visualization import simple_plot
 
 class Config:
     def __init__(self, filename, section="DEFAULT"):
@@ -813,36 +812,6 @@ class NeuralNetwork(nn.Module):
 
         return output
 
-class IdManager:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(IdManager, cls).__new__(cls, *args, **kwargs)
-            cls._instance.current_id = 0
-        return cls._instance
-
-    @staticmethod
-    def get_new_id():
-        instance = IdManager()
-        instance.current_id += 1
-        return instance.current_id
-
-class InnovationManager:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(InnovationManager, cls).__new__(cls, *args, **kwargs)
-            cls._instance.current_innovation = 0
-        return cls._instance
-
-    @staticmethod
-    def get_new_innovation_number():
-        instance = InnovationManager()
-        instance.current_innovation += 1
-        return instance.current_innovation
-
 def dumb_visualize_network(genome):
     # Create a directed graph
     G = nx.DiGraph()
@@ -886,8 +855,8 @@ def neat():
     
         species_data.append(len(population.species))
         fitness_data.append(population.max_fitness)
-        visualizer.plot_species_count(species_data)
-        visualizer.plot_max_fitness(fitness_data)
+        visualizer.simple_plot(species_data, "Species", "Generations")
+        visualizer.simple_plot(fitness_data, "Max fitness", "Generations")
     
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"population_gen_{generation}.pkl")
