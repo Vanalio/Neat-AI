@@ -1,5 +1,8 @@
 # FIXME: average_fitness for species needs to be renamed to shared_fitness
 # FIXME: "cull", "is weak" and "offspring count" should be based on shared fitness _ranks_, not simply proportionally to shared fitness
+# FIXME: purge redundant methods (clone, copy, etc.)
+# FIXME: add a method to check if a genome is valid
+# FIXME: check mutation gene consistency
 
 import random
 import multiprocessing
