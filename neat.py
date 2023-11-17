@@ -171,37 +171,11 @@ class Population:
             config.distance_threshold *= (1.0 - config.distance_adj_factor)
         elif species_ratio > 1.0:
             config.distance_threshold *= (1.0 + config.distance_adj_factor)
-        print(f"Species count: {len(self.species)}, Adjusted compatibility threshold: {config.distance_threshold}")
+        print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
 
         # Additional print for debugging: Display all species and their members
         #for species_id, species_instance in self.species.items():
             #print(f"Species ID: {species_id}, Species representatives: {species_instance.representative.id}, Species members: {len(species_instance.genomes)}")
-
-    def remove_species(self, removal_condition, message):
-        initial_species_count = len(self.species)
-        self.species = {species_id: spec for species_id, spec in self.species.items() if not removal_condition(spec)}
-        removed_count = initial_species_count - len(self.species)
-        if removed_count:
-            print(f"Removed {removed_count} {message}, Total species: {len(self.species)}")
-
-    def prune_species(self):
-        print("Extinction of weak and stale species...")
-
-        # Calculate the stale threshold and weak species threshold
-        stale_threshold = config.max_stagnation
-        weak_threshold = config.weak_threshold
-
-        # Define conditions for stale and weak species
-        is_stale = lambda spec: spec.generations_without_improvement > stale_threshold
-        is_weak = lambda spec: (spec.average_fitness / self.average_fitness * len(self.genomes)) < weak_threshold
-
-        # Remove stale species if it does not go below the minimum required species
-        if len(self.species) - len([spec for spec in self.species.values() if is_stale(spec)]) >= config.min_species:
-            self.remove_species(is_stale, "stale species")
-
-        # Remove weak species if it does not go below the minimum required species
-        if len(self.species) - len([spec for spec in self.species.values() if is_weak(spec)]) >= config.min_species:
-            self.remove_species(is_weak, "weak species")
 
     def assess(self):
         print("Assessing population...")
@@ -238,6 +212,53 @@ class Population:
             # Find elites in the species
             species.elites = {genome.id: genome for genome in sorted_genomes[:config.elites_per_species]}
             print(f"Species ID: {species.id}, Average fitness: {species.average_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}")
+
+    def prune_species(self):
+        print("Mass extinction of weak and stale species...")
+
+        #is_stale = lambda spec: spec.generations_without_improvement > config.max_stagnation
+        #print(f"Stale species ID(s): {[spec.id for spec in self.species.values() if is_stale(spec)]}")
+        # Remove stale species if it does not go below the minimum required species
+        #if len(self.species) - len([spec for spec in self.species.values() if is_stale(spec)]) >= config.min_species:
+            #self.remove_species(is_stale, "stale species")
+        #else:
+            #print("Stale species not removed due to minimum species requirement.")
+
+        # Sort weak species by their average fitness in ascending order
+        sorted_weak_species_instances = sorted(
+            (species_instance for _, species_instance in self.species.items() if self.is_weak(species_instance)),
+            key=lambda species_instance: species_instance.average_fitness
+        )
+
+        # Calculate the maximum number of species that can be removed without going below the minimum threshold
+        max_removal_count = len(self.species) - config.min_species
+
+        # Remove species up to the max_removal_count or until there are no more weak species
+        removal_count = 0
+        for species_instance in sorted_weak_species_instances:
+            if removal_count < max_removal_count:
+                del self.species[species_instance.id]
+                print(f"Removed weak species ID: {species_instance.id}")
+                removal_count += 1
+            else:
+                break
+
+        print(f"Total species after removal: {len(self.species)}")
+
+    def is_weak(self, species_instance):
+        # Calculate the fitness difference relative to the population average
+        # and normalize by the number of genomes in the species
+        normalized_difference = (species_instance.average_fitness - self.average_fitness) / len(species_instance.genomes)
+        print(f"Species ID: {species_instance.id}, Normalized difference: {normalized_difference}")
+        # Check if the normalized difference is below the weak threshold
+        return normalized_difference < config.weak_threshold
+
+    def remove_species(self, removal_condition, message):
+        initial_species_count = len(self.species)
+        self.species = {species_id: spec for species_id, spec in self.species.items() if not removal_condition(spec)}
+        removed_count = initial_species_count - len(self.species)
+        if removed_count:
+            print(f"Removed {removed_count} {message}, Total species: {len(self.species)}")
 
     def survive_and_reproduce(self):
         next_gen_genomes = {}
@@ -820,7 +841,7 @@ def neat():
     visualize_genome(first_genome)
 
     for generation in range(config.generations):
-        print(f"Generation {generation}...")
+        print(f"Generation: {generation + 1}...")
     
         population.evolve()
     
