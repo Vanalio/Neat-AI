@@ -1,3 +1,5 @@
+# FIXME: weak and cull should remove by rank instead of fitness
+
 import random
 import multiprocessing
 import gymnasium as gym
@@ -11,6 +13,31 @@ import re
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager, InnovationManager
 from visualization import simple_plot, visualize_genome
+
+def neat():
+    population = Population(first=True)
+    species_data = []
+    fitness_data = []
+    first_genome = next(iter(population.genomes.values()))
+    visualize_genome(first_genome)
+
+    for generation in range(config.generations):
+        print(f"Generation: {generation + 1}...")
+    
+        population.evolve()
+    
+        species_data.append(len(population.species))
+        fitness_data.append(population.max_fitness)
+        simple_plot(species_data, "Species", "Generations")
+        simple_plot(fitness_data, "Max fitness", "Generations")
+    
+        if generation % config.population_save_interval == 0:
+            population.save_genomes_to_file(f"population_gen_{generation}.pkl")
+    
+    population.save_genomes_to_file("final_population.pkl")
+    visualize_genome(population.best_genome)
+    print("Total ID generated:", IdManager.get_new_innovation_number())
+    print("Total Innovations generated:", InnovationManager.get_new_innovation_number())
 
 class Config:
     def __init__(self, filename, section="DEFAULT"):
@@ -80,37 +107,35 @@ class Population:
         for genome in self.genomes.values():
             print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
 
-    def evaluate_single_genome(self, genome):
-        #print(f"Evaluating genome {genome.id}...")
-        #environment = gym.make("BipedalWalker-v3", hardcore=True, render_mode="human")
-        environment = gym.make("BipedalWalker-v3", hardcore=True)
-        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=100)
-        #print("Environment created")
-        #print("Creating neural network...")
-        neural_network = NeuralNetwork(genome)
-        observation = environment.reset()  # Get the initial observation
-        if isinstance(observation, tuple):
-            observation = observation[0]  # Extract the array part of the tuple
-        observation = torch.from_numpy(observation).float()  # Convert to PyTorch tensor
+    def evolve(self):
+        self.speciate()
+        self.evaluate()
+        self.assess()
+        self.prune_species()
+        self.survive_and_reproduce()
 
-        done = False
-        total_reward = 0
+    def speciate(self):
+        print("Speciating population...")
+        self.species = {}
+        for _, genome in self.genomes.items():
+            placed_in_species = False
+            for _, species_instance in self.species.items():
+                if species_instance.is_same_species(genome):
+                    species_instance.add_genome(genome)
+                    placed_in_species = True
+                    break
 
-        while not done:
-            action = neural_network(observation)
-            action = action.detach().cpu().numpy().ravel()
-            #print("Action values:", action)  # Debug: Print the action values
-            observation, reward, terminated, truncated, info = environment.step(action)
-            total_reward += reward
+            if not placed_in_species:
+                new_species = Species()
+                new_species.add_genome(genome)
+                self.species[new_species.id] = new_species
 
-            observation = torch.from_numpy(observation).float()  # Convert to PyTorch tensor
-
-            done = terminated or truncated
-
-        environment.close()
-        print(f"Genome ID: {genome.id}, Fitness: {total_reward}")
-        return total_reward
-
+        species_ratio = len(self.species) / config.target_species
+        if species_ratio < 1.0:
+            config.distance_threshold *= (1.0 - config.distance_adj_factor)
+        elif species_ratio > 1.0:
+            config.distance_threshold *= (1.0 + config.distance_adj_factor)
+        print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
 
     def evaluate(self):
         print("Evaluating population...")
@@ -124,58 +149,34 @@ class Population:
         print("Serial evaluation")
         for genome in self.genomes.values():
             genome.fitness = self.evaluate_single_genome(genome)
-            #print(f"FROM SERIAL EVALUATE LOOP - Genome ID: {genome.id}, Fitness: {genome.fitness}")
 
-    #def evaluate_parallel(self):
-    #    print("Parallel evaluation")
-    #    fitness_scores = []
-    #    # Create a multiprocessing pool
-    #    #with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
-    #    with multiprocessing.Pool(config.parallelization) as pool:
-    #        # Parallelize the evaluation of genomes
-    #        fitness_scores = pool.map(self.evaluate_single_genome, self.genomes.values())
-    #    # Assign fitness scores back to genomes
-    #    for genome, fitness in zip(self.genomes.values(), fitness_scores):
-    #        genome.fitness = fitness
-    #        print(f"FROM PARALLEL Genome ID: {genome.id}, Fitness: {genome.fitness}")
-    ####################################################################
+    def evaluate_parallel(self):
+        pass
 
-    def speciate(self):
-        print("Speciating population...")
-        self.species = {}
-        for _, genome in self.genomes.items():  # Iterate over genome objects
-            placed_in_species = False
-            #print(f"Processing genome ID: {genome.id}")
+    def evaluate_single_genome(self, genome):
+        environment = gym.make("BipedalWalker-v3", hardcore=True)
+        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=100)
+        neural_network = NeuralNetwork(genome)
+        observation = environment.reset()
 
-            for species_id, species_instance in self.species.items():  # Iterate over Species objects
-                #print(f"Checking against species ID: {species_id}")
-                if species_instance.is_same_species(genome):
-                    #print(f"Genome {genome.id} is in the same species as the representative")
-                    species_instance.add_genome(genome)
-                    placed_in_species = True
-                    #print(f"Genome {genome.id} placed in existing species {species_id}")
-                    break
+        if isinstance(observation, tuple):
+            observation = observation[0]
+        observation = torch.from_numpy(observation).float()
 
-            if not placed_in_species:
-                #print(f"Genome {genome.id} is not in this species")
-                new_species = Species()
-                #print(f"New species ID: {new_species.id}")
-                new_species.add_genome(genome)
-                self.species[new_species.id] = new_species
-                #print(f"Added new species {new_species.id} to population...")
-            #else:
-                #print(f"Skipped genome {genome.id}, already placed in a species.")
+        done = False
+        total_reward = 0
+        while not done:
+            action = neural_network(observation)
+            action = action.detach().cpu().numpy().ravel()
+            observation, reward, terminated, truncated, info = environment.step(action)
+            total_reward += reward
+            observation = torch.from_numpy(observation).float()
+            done = terminated or truncated
 
-        species_ratio = len(self.species) / config.target_species
-        if species_ratio < 1.0:
-            config.distance_threshold *= (1.0 - config.distance_adj_factor)
-        elif species_ratio > 1.0:
-            config.distance_threshold *= (1.0 + config.distance_adj_factor)
-        print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
+        environment.close()
 
-        # Additional print for debugging: Display all species and their members
-        #for species_id, species_instance in self.species.items():
-            #print(f"Species ID: {species_id}, Species representatives: {species_instance.representative.id}, Species members: {len(species_instance.genomes)}")
+        print(f"Genome ID: {genome.id}, Fitness: {total_reward}")
+        return total_reward
 
     def assess(self):
         print("Assessing population...")
@@ -184,7 +185,6 @@ class Population:
         self.best_genome = None
 
         for _, genome in self.genomes.items():
-            #print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
 
             if total_fitness is None:
                 total_fitness = 0
@@ -199,7 +199,7 @@ class Population:
         else:
             self.average_fitness = None
 
-        print(f"Species: {len(self.species)}, Total fitness: {total_fitness}, Average fitness: {self.average_fitness}, Max fitness: {self.max_fitness}", "Best genome:", self.best_genome.id if self.best_genome else None)
+        print(f"Species count: {len(self.species)}, Population average fitness: {self.average_fitness}, Max fitness: {self.max_fitness}", "Best genome:", self.best_genome.id if self.best_genome else None)
 
         # Assess each species
         for _, species in self.species.items():
@@ -260,6 +260,8 @@ class Population:
         if removed_count:
             print(f"Removed {removed_count} {message}, Total species: {len(self.species)}")
 
+    ##################### CHECK FROM HERE ################################
+
     def survive_and_reproduce(self):
         next_gen_genomes = {}
         print("Start of survive_and_reproduce, next_gen_genomes:", next_gen_genomes)
@@ -304,10 +306,9 @@ class Population:
         self.genomes = {genome.id: genome for genome in next_gen_genomes.values()}
 
     def get_offspring_count(self, species):
-        #print("Getting offspring count...")
         if self.average_fitness is None or self.average_fitness == 0:
             raise ValueError("Average fitness is not calculated or zero.")
-        
+        # FIXME: This is not working as intended, too many offspring are being produced
         return int((species.average_fitness / self.average_fitness) * config.population_size)
 
     def produce_interspecies_offspring(self):
@@ -327,9 +328,7 @@ class Population:
         print("Getting random species...")
         if not self.species:
             raise ValueError("No species available to choose from.")
-        species_list = list(self.species.values())  # Convert the values of the dictionary to a list
-        return random.choice(species_list)  # Randomly choose from the list
-
+        return random.choice(list(self.species.values()))
 
     def save_genomes_to_file(self, file_path):
         print(f"Saving genomes to file: {file_path}")
@@ -340,13 +339,6 @@ class Population:
         print(f"Loading genomes from file: {file_path}")
         with open(file_path, "rb") as file:
             self.genomes = pickle.load(file)
-
-    def evolve(self):
-        self.speciate()
-        self.evaluate()
-        self.assess()
-        self.prune_species()
-        self.survive_and_reproduce()
 
 class Species:
     def __init__(self):
@@ -383,7 +375,6 @@ class Species:
         
         self.genomes = {genome.id: genome for genome in sorted_genomes[:cutoff]}
         print(f"Culled a total of {len(sorted_genomes) - len(self.genomes)} genomes from species {self.id}")
-
 
     def produce_offspring(self, offspring_count=1):
         print(f"Producing {offspring_count} offspring(s) for species {self.id}...")
@@ -832,30 +823,6 @@ class NeuralNetwork(nn.Module):
         output = torch.cat([self.neuron_states[neuron_id] for neuron_id in output_neurons])
 
         return output
-
-def neat():
-    population = Population(first=True)
-    species_data = []
-    fitness_data = []
-    first_genome = next(iter(population.genomes.values()))
-    visualize_genome(first_genome)
-
-    for generation in range(config.generations):
-        print(f"Generation: {generation + 1}...")
-    
-        population.evolve()
-    
-        species_data.append(len(population.species))
-        fitness_data.append(population.max_fitness)
-        simple_plot(species_data, "Species", "Generations")
-        simple_plot(fitness_data, "Max fitness", "Generations")
-    
-        if generation % config.population_save_interval == 0:
-            population.save_genomes_to_file(f"population_gen_{generation}.pkl")
-    
-    population.save_genomes_to_file("final_population.pkl")
-    visualize_genome(population.best_genome)
-    print("Total ID generated:", IdManager.get_new_innovation_number())
 
 config = Config("config.ini", "DEFAULT")
 
