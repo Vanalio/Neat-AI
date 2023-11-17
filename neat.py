@@ -1,4 +1,5 @@
-# FIXME: weak and cull should remove by rank instead of fitness
+# FIXME: average_fitness for species needs to be renamed to shared_fitness
+# FIXME: "cull", "is weak" and "offspring count" should be based on shared fitness _ranks_, not simply proportionally to shared fitness
 
 import random
 import multiprocessing
@@ -259,8 +260,6 @@ class Population:
         removed_count = initial_species_count - len(self.species)
         if removed_count:
             print(f"Removed {removed_count} {message}, Total species: {len(self.species)}")
-
-    ##################### CHECK FROM HERE ################################
 
     def survive_and_reproduce(self):
         next_gen_genomes = {}
