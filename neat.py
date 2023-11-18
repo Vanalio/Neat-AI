@@ -226,8 +226,6 @@ class Population:
 
         return offspring_count
 
-
-
     def random_species(self):
         print("Getting random species...")
         if not self.species:
@@ -257,22 +255,14 @@ class Species:
         self.age = 0
         self.generations_without_improvement = 0
 
-    def cull(self, ranks, keep_best_percentage):
+    def cull(self, keep_best_percentage):
         if not 0 < keep_best_percentage <= 1:
             raise ValueError("keep_best_percentage must be between 0 and 1.")
-
-        # Use ranks provided by the Population class
-        species_rank = ranks[self.id]
-        
-        # Calculate cutoff, ensuring at least one genome is kept
-        cutoff = max(1, int(len(self.genomes) * keep_best_percentage))
-        
-        # Sort genomes by fitness within the species
-        sorted_genomes = sorted(self.genomes.values(), key=lambda genome: genome.fitness, reverse=True)
-
-        # Keep genomes above the cutoff
-        self.genomes = {genome.id: genome for genome in sorted_genomes[:cutoff]}
-        print(f"Culled a total of {len(sorted_genomes) - len(self.genomes)} genomes from species {species_rank}")
+        original_count = len(self.genomes)
+        cutoff = max(1, int(original_count * keep_best_percentage))
+        self.genomes = dict(list(self.genomes.items())[:cutoff])
+        print(f"Culled a total of {original_count - cutoff} genomes from species {self.id}, {len(self.genomes)} genomes remaining")
+        # FIXME: remove dependencies
 
     def produce_offspring(self, offspring_count=1):
         print(f"Producing {offspring_count} offspring(s) for species {self.id}...")
