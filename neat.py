@@ -351,7 +351,7 @@ class Species:
         if not self.genomes:
             raise ValueError("No genomes in the species to copy from.")
         random_genome = random.choice(list(self.genomes.values()))
-        return random_genome.copy()  # This will now use the modified copy method
+        return random_genome.copy()
 
     def is_same_species(self, genome):
         distance = genome.calculate_genetic_distance(self.representative)
@@ -613,10 +613,10 @@ class Genome:
             activation_diff /= matching_genes
 
         N = max(len(inno_to_conn_gene1), len(inno_to_conn_gene2))
-        distance = (config.disjoint_coefficient * disjoint_genes / N) + \
-                   (config.excess_coefficient * excess_genes / N) + \
-                   (config.weight_diff_coefficient * weight_diff) + \
-                   (config.activation_diff_coefficient * activation_diff)
+        distance = ((config.disjoint_coefficient * disjoint_genes) + \
+                   (config.excess_coefficient * excess_genes) + \
+                   (config.activation_diff_coefficient * activation_diff)) / N + \
+                   (config.weight_diff_coefficient * weight_diff)
 
         #print(f"Genome {self.id} vs {other_genome.id} - Distance: {distance}")
 
