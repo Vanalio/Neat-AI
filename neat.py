@@ -4,8 +4,7 @@
 # FIXME: implement interspecies mating
 
 # CHECK: removals should remove something more than just what they remove (dependencies?)
-# CHECK: purge redundant methods (clone, copy, etc.)
-# CHECK: next gen has complete genomes (connectiongenes, neurongenes, etc.)
+# CHECK: purge redundant methods
 
 import random
 import multiprocessing
@@ -69,10 +68,32 @@ class Population:
             print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
 
     def evolve(self):
+        self.speciate()
         self.evaluate()
-        self.assess()
+        self.stat_and_sort()
         self.prune()
         self.form_next_generation()
+
+    def speciate(self):
+        print("Speciating population...")
+        self.species = {}
+        for _, genome in self.genomes.items():
+            placed_in_species = False
+            for _, species_instance in self.species.items():
+                if species_instance.is_same_species(genome):
+                    species_instance.add_genome(genome)
+                    placed_in_species = True
+                    break
+            if not placed_in_species:
+                new_species = Species()
+                new_species.add_genome(genome)
+                self.species[new_species.id] = new_species
+        species_ratio = len(self.species) / config.target_species
+        if species_ratio < 1.0:
+            config.distance_threshold *= (1.0 - config.distance_adj_factor)
+        elif species_ratio > 1.0:
+            config.distance_threshold *= (1.0 + config.distance_adj_factor)
+        print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
 
     def evaluate(self):
         print("Evaluating population...")
@@ -114,32 +135,6 @@ class Population:
         print(f"Genome ID: {genome.id}, Fitness: {total_reward}")
         return total_reward
 
-    def assess(self):
-        print("Assessing population...")
-        self.speciate()
-        self.stat_and_sort()
- 
-    def speciate(self):
-        print("Speciating population...")
-        self.species = {}
-        for _, genome in self.genomes.items():
-            placed_in_species = False
-            for _, species_instance in self.species.items():
-                if species_instance.is_same_species(genome):
-                    species_instance.add_genome(genome)
-                    placed_in_species = True
-                    break
-            if not placed_in_species:
-                new_species = Species()
-                new_species.add_genome(genome)
-                self.species[new_species.id] = new_species
-        species_ratio = len(self.species) / config.target_species
-        if species_ratio < 1.0:
-            config.distance_threshold *= (1.0 - config.distance_adj_factor)
-        elif species_ratio > 1.0:
-            config.distance_threshold *= (1.0 + config.distance_adj_factor)
-        print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
-
     def stat_and_sort(self):
         self.max_fitness = None
         self.best_genome = None
@@ -163,7 +158,7 @@ class Population:
     def prune(self):
         # Prune genomes from species
         for species_instance in self.species.values():
-            print(f"Culling species {species_instance.id}...")
+            print(f"Discarding the least fit genomes from species {species_instance.id}...")
             species_instance.cull(config.keep_best_percentage)  # Keep only a portion of the genomes
 
         # Prune weak (and stale species)
@@ -177,6 +172,7 @@ class Population:
                 print(f"Removed weak species ID: {species_instance.id}")
                 removal_count += 1
             else:
+                print(f"Reached max removal count of {max_removal_count}, stopping...")
                 break
         print(f"Removed {removal_count} weak species, {len(self.species)} species remaining")
 
@@ -194,6 +190,8 @@ class Population:
         # Initialize a new population instance with the next generation genomes
         self.__init__()
         self.genomes = next_gen_genomes_with_genes
+        for genome in self.genomes.values():
+            print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
     
     def carry_over_elites(self, next_gen_genomes):
         # Carry over the elites
@@ -272,7 +270,7 @@ class Species:
             if len(self.genomes) > 1:
                 # If there are at least two members, randomly select two different parents
                 parent1, parent2 = random.sample(list(self.genomes.values()), 2)
-                print(f"Species {self.id} has {len(self.genomes)} members, crossing over genomes {parent1.id} and {parent2.id}...")
+                #print(f"Species {self.id} has {len(self.genomes)} members, crossing over genomes {parent1.id} and {parent2.id}...")
                 new_genome = parent1.crossover(parent2)
             elif self.genomes:
                 #print(f"Species {self.id} has only one member, copying the genome...")
