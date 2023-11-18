@@ -1,9 +1,10 @@
-# FIXME: "cull", "is weak" and "offspring count" must be based on shared fitness ranking
-# FIXME: implement stale species removal
+# FIXME: "cull", "weak" and "offspring" must be based on fitness ranking
+# FIXME: implement stale species removal (also age, generations without improvement)
 # FIXME: implement interspecies mating
 
+# CHECK: removals should remove something more than just what they remove (dependencies?)
 # CHECK: purge redundant methods (clone, copy, etc.)
-# CHECK: all mutations return a complete genome (geneconnections, geneneurons, etc.)
+# CHECK: next gen has complete genomes (connectiongenes, neurongenes, etc.)
 
 import random
 import multiprocessing
@@ -45,53 +46,6 @@ def neat():
     visualize_genome(population.best_genome)
     print("Total ID generated:", IdManager.get_new_innovation_number())
     print("Total Innovations generated:", InnovationManager.get_new_innovation_number())
-
-class Config:
-    def __init__(self, filename, section="DEFAULT"):
-        self.parser = configparser.ConfigParser()
-        self.parser.read(filename)
-        if section not in self.parser:
-            raise ValueError(f"Section \"{section}\" not found in the configuration file.")
-        self.load_config(section)
-
-    def load_config(self, section):
-        for key in self.parser[section]:
-            value = self.parser.get(section, key)
-            setattr(self, key, self.auto_type(value))
-
-    def auto_type(self, value):
-        # Check if value is a numeric range
-        if re.match(r"^[\s\d.,-]+$", value) and "," in value:
-            parts = value.split(",")
-            try:
-                return tuple(float(part.strip()) if "." in part else int(part.strip()) for part in parts)
-            except ValueError:
-                pass
-
-        # Check for comma-separated string values
-        if "," in value and not re.match(r"^-?\d+(\.\d+)?$", value):
-            return tuple(part.strip() for part in value.split(","))
-
-        # Attempt to convert to integer
-        try:
-            return int(value)
-        except ValueError:
-            pass
-
-        # Attempt to convert to float
-        try:
-            return float(value)
-        except ValueError:
-            pass
-
-        # Attempt to convert to boolean
-        if value.lower() in ["true", "yes", "on"]:
-            return True
-        if value.lower() in ["false", "no", "off"]:
-            return False
-
-        # Default to string
-        return value
 
 class Population:
     def __init__(self, first=False):
@@ -209,14 +163,14 @@ class Population:
         # Prune genomes from species
         for species_instance in self.species.values():
             print(f"Culling species {species_instance.id}...")
-            species_instance.cull(ranks, config.keep_best_percentage)  # Keep only a portion of the genomes
+            species_instance.cull(config.keep_best_percentage)  # Keep only a portion of the genomes
 
-        # Prune weak and stale species
+        # Prune weak (and stale species)
         print("Mass extinction of weak and stale species...")
         max_removal_count = len(self.species) - config.min_species
         removal_count = 0
         
-        for species_instance in sorted_weak_species_instances:
+        for species_instance in self.species.values():
             if removal_count < max_removal_count:
                 del self.species[species_instance.id]
                 print(f"Removed weak species ID: {species_instance.id}")
@@ -228,28 +182,28 @@ class Population:
     def form_next_generation(self):   
         print("Forming next generation...")
         next_gen_genomes = {}
-        next_gen_genomes = self.carry_over_best_genomes(next_gen_genomes)
+        
+        # Carry over elites and reproduce
+        next_gen_genomes = self.carry_over_elites(next_gen_genomes)
         next_gen_genomes = self.reproduce(next_gen_genomes)
         
-        # initialize a new population instance with the next generation genomes
+        # Create new instances of the genomes, with the genes, for the next generation
+        next_gen_genomes_with_genes = {genome_id: genome.copy() for genome_id, genome in next_gen_genomes.items()}
+
+        # Initialize a new population instance with the next generation genomes
         self.__init__()
-        self.genomes = next_gen_genomes
+        self.genomes = next_gen_genomes_with_genes
     
-    def carry_over_best_genomes(self, next_gen_genomes):
-        # Carry over the best genome and elites
+    def carry_over_elites(self, next_gen_genomes):
+        # Carry over the elites
         for species_instance in self.species.values():
             print(f"Taking species {species_instance.id} elites to the next generation...")
             next_gen_genomes.update(species_instance.elites)
-        
-        print(f"Adding best genome {self.best_genome.id} to the next generation...")
-        next_gen_genomes[self.best_genome.id] = self.best_genome
-        
-        print("After elites and best genome, next_gen_genomes:", next_gen_genomes)
         return next_gen_genomes
     
     def reproduce(self, next_gen_genomes):
         for species_instance in self.species.values():
-            offspring_count = self.get_offspring_count(species_instance)
+            offspring_count = self.get_offspring_count(species_instance, next_gen_genomes)
             offspring = species_instance.produce_offspring(offspring_count)
             next_gen_genomes.update(offspring)
 
@@ -259,22 +213,20 @@ class Population:
         
         return next_gen_genomes
         
-    def get_offspring_count(self, species):
-        # Ensure there are ranks available for all species
-        if not ranks:
-            raise ValueError("Shared fitness ranks are not available.")
-
-        # Calculate the total number of ranks to determine the distribution of offspring
-        total_ranks = sum(ranks.values())
-
-        # Calculate the proportion of offspring for this species based on its rank
-        # Note: Lower rank number means higher fitness, so invert the rank for calculation
-        species_proportion = (len(ranks) - ranks[species.id] + 1) / total_ranks
-
-        # Allocate offspring based on the proportion and total population size
-        offspring_count = int(species_proportion * config.population_size)
+    def get_offspring_count(self, species_instance, next_gen_genomes):
+        # Calculate total offspring needed
+        total_offspring_needed = config.population_size - len(next_gen_genomes)
+        # Sort species based on average shared fitness (higher is better)
+        sorted_species = sorted(self.species.values(), key=lambda s: s.average_shared_fitness, reverse=True)
+        # Find the rank of the given species
+        rank = sorted_species.index(species_instance) + 1
+        total_rank_sum = sum(1 / i for i in range(1, len(sorted_species) + 1))
+        # Calculate the offspring count for the given species
+        offspring_count = int((total_offspring_needed * (1 / rank)) / total_rank_sum)
 
         return offspring_count
+
+
 
     def random_species(self):
         print("Getting random species...")
@@ -665,22 +617,6 @@ class NeuralNetwork(nn.Module):
         self.biases = None
         self.input_neuron_mapping = None
 
-        """# Check if the network needs rebuilding
-        #if genome.network_needs_rebuild:
-            # Create the network
-            # Create a mapping for input neuron IDs
-            #self.input_neuron_mapping = {neuron_id: idx for idx, neuron_id in enumerate(
-                #sorted(neuron_id for neuron_id, neuron in genome.neuron_genes.items() if neuron.layer == "input" and neuron.enabled))}
-
-            #self._create_network()
-            #print(f"Neural network created for genome {genome.id}")
-            # Store the newly created network in the genome
-            #genome.network = self
-            # workaround for the network not being reloadable
-            #genome.network_needs_rebuild = True
-        #else:
-            # Use the existing network from the genome"""
-
         # Create the network
         # Create a mapping for input neuron IDs
         self.input_neuron_mapping = {
@@ -777,6 +713,52 @@ class NeuralNetwork(nn.Module):
 
         return output
 
+class Config:
+    def __init__(self, filename, section="DEFAULT"):
+        self.parser = configparser.ConfigParser()
+        self.parser.read(filename)
+        if section not in self.parser:
+            raise ValueError(f"Section \"{section}\" not found in the configuration file.")
+        self.load_config(section)
+
+    def load_config(self, section):
+        for key in self.parser[section]:
+            value = self.parser.get(section, key)
+            setattr(self, key, self.auto_type(value))
+
+    def auto_type(self, value):
+        # Check if value is a numeric range
+        if re.match(r"^[\s\d.,-]+$", value) and "," in value:
+            parts = value.split(",")
+            try:
+                return tuple(float(part.strip()) if "." in part else int(part.strip()) for part in parts)
+            except ValueError:
+                pass
+
+        # Check for comma-separated string values
+        if "," in value and not re.match(r"^-?\d+(\.\d+)?$", value):
+            return tuple(part.strip() for part in value.split(","))
+
+        # Attempt to convert to integer
+        try:
+            return int(value)
+        except ValueError:
+            pass
+
+        # Attempt to convert to float
+        try:
+            return float(value)
+        except ValueError:
+            pass
+
+        # Attempt to convert to boolean
+        if value.lower() in ["true", "yes", "on"]:
+            return True
+        if value.lower() in ["false", "no", "off"]:
+            return False
+
+        # Default to string
+        return value
 config = Config("config.ini", "DEFAULT")
 
 if __name__ == "__main__":
