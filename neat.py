@@ -1,4 +1,5 @@
 # FIXME: "cull", "weak" and "offspring" must be based on fitness ranking
+# FIXME: parent selection must be based on rank, not chance proportional to fitness
 # FIXME: implement stale species removal (also age, generations without improvement)
 # FIXME: implement interspecies mating
 
