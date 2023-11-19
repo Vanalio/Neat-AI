@@ -59,12 +59,18 @@ class Population:
         self.max_fitness = None
         self.best_genome = None
         if first:
+            self.initialize_neuron_ids()
             self._first_population()
+
+    def initialize_neuron_ids(self):
+        self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
+        self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
+        self.hidden_ids = [IdManager.get_new_id() for _ in range(config.hidden_neurons)]
 
     def _first_population(self):
         print("Creating first population...")
         for _ in range(config.population_size):
-            genome = Genome().create()
+            genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
             self.genomes[genome.id] = genome
         print(f"Genomes created for first population: {len(self.genomes)}")
         print("Genomes composed of:")
@@ -336,14 +342,10 @@ class Genome:
         self.network_needs_rebuild = True
         self.fitness = None
 
-    def create(self):
-        # Use IdManager to assign IDs for input, output, and hidden initial neurons
-        input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
-        output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        # Add neurons
-        self.add_neurons("input", count=config.input_neurons, neuron_ids=input_ids)
-        self.add_neurons("output", count=config.output_neurons, neuron_ids=output_ids)
-        self.add_neurons("hidden", config.hidden_neurons)
+    def create(self, input_ids, output_ids, hidden_ids):
+        self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
+        self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
+        self.add_neurons("hidden", count=len(hidden_ids), neuron_ids=hidden_ids)
         # Attempt to create initial connections
         max_possible_conn = config.hidden_neurons * (config.input_neurons + config.hidden_neurons + config.output_neurons)
         attempts = min(config.initial_conn_attempts, max_possible_conn * config.attempts_to_max_factor)
