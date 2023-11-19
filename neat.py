@@ -1,6 +1,3 @@
-from memory_profiler import profile
-
-# custom imports
 from neat_classes import Population
 from config import Config
 config = Config("config.ini", "DEFAULT")
