@@ -1,5 +1,7 @@
+# FIXME: cull and stale species seem not to work properly
+# FIXME: crossover count is not correct
+# FIXME: implement parallel evaluation
 # FIXME: parent selection must be based on chance proportional to rank of genome within the species, not chance proportional to its fitness
-# FIXME: manage input and output neurons during crossover
 # FIXME: implement update of age and generations without improvement
 # FIXME: implement interspecies mating
 
@@ -11,13 +13,12 @@
 # CHECK: purge redundant methods
 
 import random
-import matplotlib.pyplot as plt
-import gymnasium as gym
-import pickle
-import torch
-import torch.nn as nn
 import configparser
 import re
+import gymnasium as gym
+import torch
+import torch.nn as nn
+import pickle
 
 # custom imports
 from torch_activation_functions import ActivationFunctions as activation_functions
@@ -25,38 +26,19 @@ from managers import IdManager, InnovationManager
 from visualization import visualize_genome
 
 def neat():
-    plt.ion()  # Turn on interactive mode
-    fig, ax = plt.subplots(2, 1, figsize=(10, 12))  # Create a figure with 2 subplots
-
+    print(f"\nGeneration: INITIAL")
     population = Population(first=True)
 
     species_data = []
     fitness_data = []
 
     for generation in range(config.generations):
-        print(f"\nGeneration: {generation + 1}:")
+        print(f"\nGeneration: {generation + 1}")
 
         population.evolve()
 
         species_data.append(len(population.species))
         fitness_data.append(population.max_fitness)
-
-        # Update species data plot
-        ax[0].cla()
-        ax[0].plot(species_data, label="Species")
-        ax[0].set_title("Species Over Generations")
-        ax[0].set_xlabel("Generations")
-        ax[0].set_ylabel("Species Count")
-
-        # Update fitness data plot
-        ax[1].cla()
-        ax[1].plot(fitness_data, label="Max Fitness")
-        ax[1].set_title("Max Fitness Over Generations")
-        ax[1].set_xlabel("Generations")
-        ax[1].set_ylabel("Fitness")
-
-        plt.draw()
-        plt.pause(0.1)  # Pause briefly to update the plots
 
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"population_gen_{generation}.pkl")
@@ -64,9 +46,6 @@ def neat():
     population.save_genomes_to_file("final_population.pkl")
     print("Total ID generated:", IdManager.get_new_id())
     print("Total Innovations generated:", InnovationManager.get_new_innovation_number())
-
-    plt.ioff()  # Turn off interactive mode
-    plt.show()  # Show the final plot
 
 class Population:
     def __init__(self, first=False):
@@ -76,10 +55,11 @@ class Population:
         self.max_fitness = None
         self.best_genome = None
         if first:
-            self.initialize_neuron_ids()
+            self._initialize_neuron_ids()
             self._first_population()
+            self.print_neuron_ids()
 
-    def initialize_neuron_ids(self):
+    def _initialize_neuron_ids(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
         self.hidden_ids = [IdManager.get_new_id() for _ in range(config.hidden_neurons)]
@@ -89,9 +69,14 @@ class Population:
         for _ in range(config.population_size):
             genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
             self.genomes[genome.id] = genome
-        print(f"Genomes created for first population: {len(self.genomes)} - as follows:")
-        for genome in self.genomes.values():
-            print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
+        print(f"Genomes created for first population: {len(self.genomes)}")
+        #for genome in self.genomes.values():
+            #print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
+
+    def print_neuron_ids(self):
+        print("Input Neuron IDs:", self.input_ids)
+        print("Output Neuron IDs:", self.output_ids)
+        print("Hidden Neuron IDs:", self.hidden_ids)
 
     def evolve(self):
         self.speciate()
@@ -99,7 +84,6 @@ class Population:
         self.relu_offset_fitness()
         self.stat_and_sort()
         self.prune()
-        self.stat_and_sort()
         self.form_next_generation()
 
     def speciate(self):
@@ -165,10 +149,8 @@ class Population:
     def relu_offset_fitness(self):
 
         for _, genome in self.genomes.items():
-            genome.fitness = max(0, genome.fitness + 50)
-
-        for _, genome in self.genomes.items():
-            print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
+            genome.fitness = max(0, genome.fitness + 100)
+            #print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
 
     def stat_and_sort(self):
         print("\nStats and sorting...")
@@ -194,17 +176,26 @@ class Population:
         print(f"Max fitness: {self.max_fitness}", "Best genome:", self.best_genome.id if self.best_genome else None)
 
     def prune(self):
-        print("\nPruning population...")
+        self.prune_genomes()
+        self.stat_and_sort()
+        self.prune_stale_species()
+        self.stat_and_sort()
+        self.prune_weak_species()
+        self.stat_and_sort()
+
+    def prune_genomes(self):
+        print("\nPruning least fit genomes...")
         # Prune genomes from species
         for species_instance in self.species.values():
             print(f"Discarding the least fit genomes from species {species_instance.id}...")
-            species_instance.cull(config.keep_best_percentage)  # Keep only a portion of the genomes
+            species_instance.cull(config.keep_best_genomes_in_species)  # Keep only a portion of the genomes
 
-        # Prune weak (and stale species)
-        print("Mass extinction of weak and stale species...")
+
+    def prune_stale_species(self):
+        # Prune stale species
+        print("\nMass extinction of stale species...")
         max_removal_count = len(self.species) - config.min_species
         removal_count = 0
-        
         for species_instance in self.species.values():
             if species_instance.generations_without_improvement >= config.max_stagnation:
                 if removal_count < max_removal_count:
@@ -217,14 +208,28 @@ class Population:
                     break
         print(f"Removed {removal_count} stale species, {len(self.species)} species surviving")
 
+    def prune_weak_species(self):
+        print("\nMass extinction of weak species...")
+        max_removal_count = len(self.species) - config.min_species
+        print(f"Max removal count: {max_removal_count}")
+        removal_count = 0
         if removal_count < max_removal_count:
             # Remove weak species
-            if not 0 < config.weak_threshold <= 1:
-                raise ValueError("config.weak_threshold must be between 0 and 1.")
+            if not 0 < config.keep_best_species <= 1:
+                raise ValueError("config.keep_best_species must be between 0 and 1.")
             original_count = len(self.species)
-            cutoff = max(1, int(original_count * config.weak_threshold))
-            self.species = dict(list(self.species.items())[:cutoff])
-            print(f"Culled {cutoff} species, {len(self.species)} surviving")
+            print(f"Original species count: {original_count}")
+            cutoff = max(1, int(original_count * config.keep_best_species))
+            print(f"Cutoff: {cutoff}")
+
+            # Gather keys of species to be removed
+            keys_to_remove = list(self.species.keys())[cutoff:]
+            
+            # Delete each species
+            for key in keys_to_remove:
+                del self.species[key]
+
+            print(f"Removed weak species, new species count: {len(self.species)}")
 
     def form_next_generation(self):   
         print("\nForming next generation...")
@@ -240,9 +245,9 @@ class Population:
         # Initialize a new population instance with the next generation genomes
         self.__init__()
         self.genomes = next_gen_genomes_with_genes
-        print(f"\nGenomes created for next generation: {len(self.genomes)} - as follows:")
-        for genome in self.genomes.values():
-            print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
+        print(f"\nGenomes in the next generation: {len(self.genomes)}")
+        #for genome in self.genomes.values():
+            #print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
     
     def carry_over_elites(self, next_gen_genomes):
         # Carry over the elites
@@ -252,8 +257,11 @@ class Population:
         return next_gen_genomes
     
     def reproduce(self, next_gen_genomes):
+        # Calculate total offspring needed
+        needed_offspring = config.population_size - len(next_gen_genomes)
+        print(f"Total offspring needed: {needed_offspring} - next_gen_genomes: {len(next_gen_genomes)}")
         for species_instance in self.species.values():
-            offspring_count = self.get_offspring_count(species_instance, next_gen_genomes)
+            offspring_count = self.get_offspring_count(species_instance, needed_offspring, next_gen_genomes)
             offspring = species_instance.produce_offspring(offspring_count)
             next_gen_genomes.update(offspring)
 
@@ -263,14 +271,12 @@ class Population:
         
         return next_gen_genomes
         
-    def get_offspring_count(self, species_instance, next_gen_genomes):
-        # Calculate total offspring needed
-        total_offspring_needed = config.population_size - len(next_gen_genomes)
+    def get_offspring_count(self, species_instance, needed_offspring, next_gen_genomes):
         # Calculate the rank of the given species
         rank = list(self.species.keys()).index(species_instance.id) + 1
         total_rank_sum = sum(1 / i for i in range(1, len(self.species) + 1))
         # Calculate the offspring count for the given species
-        offspring_count = int((total_offspring_needed * (1 / rank)) / total_rank_sum)
+        offspring_count = int((needed_offspring * (1 / rank)) / total_rank_sum)
 
         return offspring_count
 
@@ -303,11 +309,11 @@ class Species:
         self.age = 0
         self.generations_without_improvement = 0
 
-    def cull(self, keep_best_percentage):
-        if not 0 < keep_best_percentage <= 1:
-            raise ValueError("keep_best_percentage must be between 0 and 1.")
+    def cull(self, keep_best_genomes_in_species):
+        if not 0 < keep_best_genomes_in_species <= 1:
+            raise ValueError("keep_best_genomes_in_species must be between 0 and 1.")
         original_count = len(self.genomes)
-        cutoff = max(1, int(original_count * keep_best_percentage))
+        cutoff = max(1, int(original_count * keep_best_genomes_in_species))
         self.genomes = dict(list(self.genomes.items())[:cutoff])
         print(f"Culled a total of {original_count - cutoff} genomes from species {self.id}, {len(self.genomes)} genomes remaining")
         # FIXME: order genomes, remove also dependant objects
@@ -333,7 +339,7 @@ class Species:
 
             new_genome.mutate()
             offspring[new_genome.id] = new_genome
-
+        print(f"Produced {len(offspring)} offspring(s) for species {self.id}")
         return offspring
 
     def random_genome(self):
@@ -571,10 +577,10 @@ class Genome:
         # then choose whether to perturb or set the weight
         if random.random() < config.weight_perturb_vs_set_chance:
             gene_to_mutate.weight = random.uniform(-1, 1) * config.weight_mutate_factor * gene_to_mutate.weight
-            print(f"Perturbed weight for genome {self.id} by factor {config.weight_mutate_factor} to {gene_to_mutate.weight}")
+            #print(f"Perturbed weight for genome {self.id} by factor {config.weight_mutate_factor} to {gene_to_mutate.weight}")
         else:
             gene_to_mutate.weight = random.uniform(*config.weight_init_range)
-            print(f"Set weight for genome {self.id} to {gene_to_mutate.weight}")
+            #print(f"Set weight of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.weight}")
 
     def mutate_bias(self):
         # first choose a random not input layer neuron gene to mutate
@@ -582,10 +588,10 @@ class Genome:
         # then choose whether to perturb or set the bias
         if random.random() < config.bias_perturb_vs_set_chance:
             gene_to_mutate.bias = random.uniform(-1, 1) * config.bias_mutate_factor * gene_to_mutate.bias
-            print(f"Perturbed bias of neuron {gene_to_mutate.id} in genome {self.id} by factor {config.bias_mutate_factor} to {gene_to_mutate.bias}")
+            #print(f"Perturbed bias of neuron {gene_to_mutate.id} in genome {self.id} by factor {config.bias_mutate_factor} to {gene_to_mutate.bias}")
         else:
             gene_to_mutate.bias = random.uniform(*config.bias_init_range)
-            print(f"Set bias of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.bias}")
+            #print(f"Set bias of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.bias}")
 
     def mutate_activation_function(self):
         available_functions = activation_functions.get_activation_functions()
@@ -599,15 +605,24 @@ class Genome:
         print(f"Toggled gene {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
     
     def mutate_neuron_toggle(self):
-        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
-        gene_to_mutate.enabled = not gene_to_mutate.enabled
-        print(f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
+        # Find all enabled hidden neurons
+        enabled_hidden_neurons = [gene for gene in self.neuron_genes.values() if gene.layer == "hidden" and gene.enabled]
+        
+        # Check if there is more than one enabled hidden neuron
+        if len(enabled_hidden_neurons) > 1:
+            # Choose a random enabled hidden neuron to mutate
+            gene_to_mutate = random.choice(enabled_hidden_neurons)
+            gene_to_mutate.enabled = not gene_to_mutate.enabled
+            print(f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
+        else:
+            print(f"No other enabled hidden neurons to toggle in genome {self.id}")
 
     def build_network(self):
         print(f"Building network for genome {self.id}...")
         if self.network_needs_rebuild:
             self.network = NeuralNetwork(self)
             self.network_needs_rebuild = False
+        #print(f"Network built for genome {self.id}")
         return self.network
 
     def calculate_genetic_distance(self, other_genome):

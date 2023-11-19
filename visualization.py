@@ -5,14 +5,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 
-def simple_plot(data, title=None, xlabel=None, ylabel=None):
-    plt.plot(data)
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.show()
-
-
 def visualize_genome(genome, ax=None):
     G = nx.DiGraph()
 
@@ -37,5 +29,5 @@ def visualize_genome(genome, ax=None):
     pos = nx.spring_layout(G)  # Adjust layout for better visualization
 
     # Draw
-    nx.draw(G, pos, with_labels=True, node_color=[G.nodes[node]["color"] for node in G.nodes],
+    nx.draw(G, pos, with_labels=False, node_color=[G.nodes[node]["color"] for node in G.nodes],
             edge_color="black", width=1, linewidths=1, node_size=500, alpha=0.9, ax=ax)
