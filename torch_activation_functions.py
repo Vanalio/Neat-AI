@@ -10,12 +10,12 @@ class ActivationFunctions:
         return [
             "identity",
             "relu",
-            "leaky_relu",
+            #"leaky_relu",
             "clipped_relu",
             "tanh",
-            "sigmoid",
-            "softplus",
-            "abs",
+            #"sigmoid",
+            #"softplus",
+            #"abs",
         ]
 
     @staticmethod
