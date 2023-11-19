@@ -54,6 +54,7 @@ class Population:
         self.species = {}
         self.max_fitness = None
         self.best_genome = None
+        self.environment = None
         if first:
             self._initialize_neuron_ids()
             self._first_population()
@@ -108,6 +109,13 @@ class Population:
         print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
 
     def evaluate(self):
+        # Initialize the environment
+        self.environment = gym.make("BipedalWalker-v3", hardcore=True)
+        self.environment = gym.wrappers.TimeLimit(self.environment, max_episode_steps=100)
+
+        # Reset the environment and store the initial observation
+        self.initial_observation = self.environment.reset()
+
         print("Evaluating population...")
         if config.parallelize:
             self.evaluate_parallel()
@@ -123,33 +131,38 @@ class Population:
         pass
 
     def evaluate_single_genome(self, genome):
-        environment = gym.make("BipedalWalker-v3", hardcore=True)
-        environment = gym.wrappers.TimeLimit(environment, max_episode_steps=100)
-        neural_network = NeuralNetwork(genome)
-        observation = environment.reset()
-
+        # Reset environment to initial state
+        observation = self.environment.reset()
+        
+        # Extract observation array from tuple if necessary
         if isinstance(observation, tuple):
             observation = observation[0]
+
         observation = torch.from_numpy(observation).float()
 
+        neural_network = NeuralNetwork(genome)
         done = False
         total_reward = 0
+
         while not done:
             action = neural_network(observation)
             action = action.detach().cpu().numpy().ravel()
-            observation, reward, terminated, truncated, info = environment.step(action)
+            observation, reward, terminated, truncated, _ = self.environment.step(action)
             total_reward += reward
+
+            # Extract observation array from tuple if necessary
+            if isinstance(observation, tuple):
+                observation = observation[0]
+
             observation = torch.from_numpy(observation).float()
             done = terminated or truncated
-
-        environment.close()
 
         return total_reward
 
     def relu_offset_fitness(self):
 
         for _, genome in self.genomes.items():
-            genome.fitness = max(0, genome.fitness + 100)
+            genome.fitness = max(0, genome.fitness + config.fitness_offset)
             #print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
 
     def stat_and_sort(self):
@@ -161,12 +174,14 @@ class Population:
             species.elites = {genome.id: genome for genome in sorted_genomes[:config.elites_per_species]}
             species.total_fitness = sum(genome.fitness for genome in species.genomes.values())
             species.average_shared_fitness = species.total_fitness / (len(species.genomes) ** 2)
-            print(f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}")
 
         self.max_fitness = None
         self.best_genome = None
         sorted_species = sorted(self.species.items(), key=lambda item: item[1].average_shared_fitness, reverse=True)
         self.species = {species_id: species for species_id, species in sorted_species}
+
+        for _, species in self.species.items():
+            print(f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}")
 
         # Calculate population fitness stats
         for _, genome in self.genomes.items():
@@ -187,7 +202,7 @@ class Population:
         print("\nPruning least fit genomes...")
         # Prune genomes from species
         for species_instance in self.species.values():
-            print(f"Discarding the least fit genomes from species {species_instance.id}...")
+            #print(f"Discarding the least fit genomes from species {species_instance.id}...")
             species_instance.cull(config.keep_best_genomes_in_species)  # Keep only a portion of the genomes
 
 
@@ -234,7 +249,7 @@ class Population:
     def form_next_generation(self):   
         print("\nForming next generation...")
         next_gen_genomes = {}
-        
+
         # Carry over elites and reproduce
         next_gen_genomes = self.carry_over_elites(next_gen_genomes)
         next_gen_genomes = self.reproduce(next_gen_genomes)
@@ -245,9 +260,9 @@ class Population:
         # Initialize a new population instance with the next generation genomes
         self.__init__()
         self.genomes = next_gen_genomes_with_genes
-        print(f"\nGenomes in the next generation: {len(self.genomes)}")
-        #for genome in self.genomes.values():
-            #print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
+
+        for genome in self.genomes.values():
+            print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}, Fitness: {genome.fitness}, Disabled connections: {len([gene for gene in genome.connection_genes.values() if not gene.enabled])}, Disabled neurons: {len([gene for gene in genome.neuron_genes.values() if not gene.enabled])}")
     
     def carry_over_elites(self, next_gen_genomes):
         # Carry over the elites
@@ -267,8 +282,10 @@ class Population:
 
         # Ensure population size is maintained adding random species offspring
         while len(next_gen_genomes) < config.population_size:
+            #print(f"Adding random species offspring to maintain population size...")
+            print(f"next_gen_genomes: {len(next_gen_genomes)}")
             next_gen_genomes.update(self.random_species().produce_offspring(1))
-        
+            #print(f"Taken random species offspring from species {species_instance.id} to the next generation...")
         return next_gen_genomes
         
     def get_offspring_count(self, species_instance, needed_offspring, next_gen_genomes):
@@ -281,7 +298,7 @@ class Population:
         return offspring_count
 
     def random_species(self):
-        print("Getting random species...")
+        #print("Getting random species...")
         if not self.species:
             raise ValueError("No species available to choose from.")
         return random.choice(list(self.species.values()))
@@ -319,7 +336,7 @@ class Species:
         # FIXME: order genomes, remove also dependant objects
 
     def produce_offspring(self, offspring_count=1):
-        print(f"Producing {offspring_count} offspring(s) for species {self.id}...")
+        #print(f"\nProducing {offspring_count} offspring(s) for species {self.id}...")
         offspring = {}
         for _ in range(offspring_count):
             if len(self.genomes) > 1:
@@ -339,7 +356,7 @@ class Species:
 
             new_genome.mutate()
             offspring[new_genome.id] = new_genome
-        print(f"Produced {len(offspring)} offspring(s) for species {self.id}")
+        #print(f"Produced {len(offspring)} offspring(s) for species {self.id}")
         return offspring
 
     def random_genome(self):
@@ -524,7 +541,7 @@ class Genome:
             self.mutate_activation_function()
 
         if random.random() < config.connection_toggle_chance:
-            self.mutate_gene_toggle()
+            self.mutate_connection_toggle()
 
         if random.random() < config.neuron_toggle_chance:
             self.mutate_neuron_toggle()
@@ -595,14 +612,14 @@ class Genome:
 
     def mutate_activation_function(self):
         available_functions = activation_functions.get_activation_functions()
-        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
+        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer == "hidden"])
         gene_to_mutate.activation = random.choice(available_functions)
         print(f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}")
 
-    def mutate_gene_toggle(self):
+    def mutate_connection_toggle(self):
         gene_to_mutate = random.choice([gene for gene in self.connection_genes.values()])
         gene_to_mutate.enabled = not gene_to_mutate.enabled
-        print(f"Toggled gene {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
+        print(f"Toggled connection {gene_to_mutate.id} from neuron {gene_to_mutate.from_neuron} to neuron {gene_to_mutate.to_neuron} in genome {self.id} to {gene_to_mutate.enabled}")
     
     def mutate_neuron_toggle(self):
         # Find all enabled hidden neurons
@@ -738,7 +755,10 @@ class NeuralNetwork(nn.Module):
                 )
             )
         }
+        #print(f"Input neuron mapping: {self.input_neuron_mapping}")
+        #print(f"Creating network for genome {genome.id}...")
         self._create_network()
+        #print(f"Network created for genome {genome.id}")
         genome.network = self
 
     def _create_network(self):
@@ -764,15 +784,24 @@ class NeuralNetwork(nn.Module):
     def forward(self, input):
         if input.shape[0] != len(self.input_neuron_mapping):
             raise ValueError(f"Input size mismatch. Expected {len(self.input_neuron_mapping)}, got {input.shape[0]}")
+
+        # Reset neuron states at the start of each forward pass
         self.reset_neuron_states()
+
+        # Set the states of input neurons
         for neuron_id, idx in self.input_neuron_mapping.items():
-            self.neuron_states[neuron_id] = input[idx]
+            if self.genome.neuron_genes[neuron_id].enabled:
+                self.neuron_states[neuron_id] = input[idx]
+
+        # Propagate signals through connections
         for gene in self.genome.connection_genes.values():
-            if gene.enabled:
+            if gene.enabled and self.genome.neuron_genes[gene.from_neuron].enabled and self.genome.neuron_genes[gene.to_neuron].enabled:
                 weight = self.weights[f"{gene.from_neuron}_{gene.to_neuron}"]
                 from_neuron_id = gene.from_neuron
                 to_neuron_id = gene.to_neuron
                 self.neuron_states[to_neuron_id] += weight * self.neuron_states[from_neuron_id]
+
+        # Apply activation functions and biases
         for neuron_id, neuron_gene in self.genome.neuron_genes.items():
             if neuron_gene.enabled:
                 activation_function = getattr(activation_functions, neuron_gene.activation)
@@ -780,8 +809,11 @@ class NeuralNetwork(nn.Module):
                 if bias_key in self.biases:
                     self.neuron_states[neuron_id] = self.neuron_states[neuron_id] + self.biases[bias_key]
                 self.neuron_states[neuron_id] = activation_function(self.neuron_states[neuron_id])
+
+        # Gather output neuron states
         output_neurons = [neuron_id for neuron_id in self.neuron_states if self.genome.neuron_genes[neuron_id].layer == "output"]
-        output = torch.cat([self.neuron_states[neuron_id] for neuron_id in output_neurons])
+        output = torch.cat([self.neuron_states[neuron_id] for neuron_id in output_neurons if self.genome.neuron_genes[neuron_id].enabled])
+
         return output
 
 class Config:
