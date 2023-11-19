@@ -1,5 +1,6 @@
 from neat_classes import Population
 from config import Config
+
 config = Config("config.ini", "DEFAULT")
 
 def neat():

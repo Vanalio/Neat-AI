@@ -1,7 +1,6 @@
-# Functions for results visualization
+# Functions for visualization
 
 
-import matplotlib.pyplot as plt
 import networkx as nx
 
 
