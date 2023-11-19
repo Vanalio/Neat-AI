@@ -419,16 +419,14 @@ class Genome:
     def crossover(self, other_genome):
         offspring = Genome()
 
-        # Define the standardized IDs for input and output neurons
-        input_ids = range(1, config.input_neurons + 1)
-        output_ids = range(config.input_neurons + 1, config.input_neurons + config.output_neurons + 1)
-
         # Inherit all input neurons from one parent (e.g., self)
-        for neuron_id in input_ids:
+        input_neuron_ids = [neuron_id for neuron_id, neuron in self.neuron_genes.items() if neuron.layer == "input"]
+        for neuron_id in input_neuron_ids:
             offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
 
         # Inherit output neurons, combining properties from both parents
-        for neuron_id in output_ids:
+        output_neuron_ids = [neuron_id for neuron_id, neuron in self.neuron_genes.items() if neuron.layer == "output"]
+        for neuron_id in output_neuron_ids:
             if random.random() < 0.5:
                 offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
             else:
