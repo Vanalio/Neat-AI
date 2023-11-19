@@ -3,6 +3,8 @@
 # FIXME: implement update of age and generations without improvement
 # FIXME: implement interspecies mating
 
+# ADD: randomize activation function at creation or mutate_add_neuron with random.choice(ActivationFunctions.get_activation_functions())
+
 # CHECK: check if the network is built correctly and the computation is correct
 # CHECK: disabled genes are correctly inherited 
 # CHECK: removals should remove something more than just what they remove (dependencies?)
@@ -335,14 +337,24 @@ class Genome:
         self.fitness = None
 
     def create(self):
-        #print(f"Creating genome {self.id}...")
-        self.add_neurons("input", config.input_neurons)
-        self.add_neurons("output", config.output_neurons)
-        self.add_neurons("hidden", config.hidden_neurons)
+        # Standard IDs for input and output neurons
+        input_ids = range(1, config.input_neurons + 1)
+        output_ids = range(config.input_neurons + 1, config.input_neurons + config.output_neurons + 1)
+        # Add initial neurons
+        self.add_initial_neurons(input_ids, output_ids)
+        # Attempt to create initial connections
         max_possible_conn = config.hidden_neurons * (config.input_neurons + config.hidden_neurons + config.output_neurons)
         attempts = min(config.initial_conn_attempts, max_possible_conn * config.attempts_to_max_factor)
         self.attempt_connections(from_layer=None, to_layer=None, attempts=attempts)
         return self
+
+    def add_initial_neurons(self, input_ids, output_ids):
+        # Add input neurons
+        self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
+        # Add output neurons
+        self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
+        # Add hidden neurons
+        self.add_neurons("hidden", config.hidden_neurons)
 
     def copy(self):
         #print(f"Copying genome {self.id}...")
@@ -358,11 +370,14 @@ class Genome:
 
         return new_genome
 
-    def add_neurons(self, layer, count):
-        for _ in range(count):
-            new_neuron = NeuronGene(layer)
-            self.neuron_genes[new_neuron.id] = new_neuron
-            print(f"Genome {self.id}: added neuron {new_neuron.id} to layer {layer}")
+    def add_neurons(self, layer, count, neuron_ids=None):
+        if neuron_ids is None:
+            neuron_ids = [IdManager.get_new_id() for _ in range(count)]
+
+        for neuron_id in neuron_ids:
+            new_neuron = NeuronGene(layer, neuron_id)
+            self.neuron_genes[neuron_id] = new_neuron
+            print(f"Genome {self.id}: added neuron {neuron_id} to layer {layer}")
 
     def attempt_connections(self, from_layer=None, to_layer=None, attempts=1):
         #print(f"Attempting {attempts} connections for genome {self.id}...")
@@ -410,10 +425,20 @@ class Genome:
     def crossover(self, other_genome):
         offspring = Genome()
 
-        # Inherit all input and output neurons from one parent (e.g., self)
-        for neuron_id, neuron_gene in self.neuron_genes.items():
-            if neuron_gene.layer in ["input", "output"]:
-                offspring.neuron_genes[neuron_id] = neuron_gene.copy()
+        # Define the standardized IDs for input and output neurons
+        input_ids = range(1, config.input_neurons + 1)
+        output_ids = range(config.input_neurons + 1, config.input_neurons + config.output_neurons + 1)
+
+        # Inherit all input neurons from one parent (e.g., self)
+        for neuron_id in input_ids:
+            offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
+
+        # Inherit output neurons, combining properties from both parents
+        for neuron_id in output_ids:
+            if random.random() < 0.5:
+                offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
+            else:
+                offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy()
 
         # Handle connection genes (both matching and disjoint/excess genes)
         genes1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
@@ -646,15 +671,22 @@ class ConnectionGene:
         return new_gene
 
 class NeuronGene:
-    def __init__(self, layer):
-        self.id = IdManager.get_new_id()
+    def __init__(self, layer, neuron_id=None):
+        self.id = neuron_id if neuron_id is not None else IdManager.get_new_id()
         self.layer = layer
-        self.activation = config.default_hidden_activation if self.layer == "hidden" else (config.default_output_activation if self.layer == "output" else "identity")
-        self.bias = random.uniform(*config.bias_init_range) if self.layer == "output" or self.layer == "hidden" else 0
+        if layer == "output":
+            self.activation = config.default_output_activation
+            self.bias = random.uniform(*config.bias_init_range)
+        elif layer == "hidden":
+            self.activation = config.default_hidden_activation
+            self.bias = random.uniform(*config.bias_init_range)
+        else:
+            self.activation = "identity"
+            self.bias = 0
         self.enabled = True
 
     def copy(self):
-        new_gene = NeuronGene(self.layer)
+        new_gene = NeuronGene(self.layer, self.id)
         new_gene.activation = self.activation
         new_gene.bias = self.bias
         new_gene.enabled = self.enabled
@@ -668,9 +700,6 @@ class NeuralNetwork(nn.Module):
         self.weights = None
         self.biases = None
         self.input_neuron_mapping = None
-
-        # Create the network
-        # Create a mapping for input neuron IDs
         self.input_neuron_mapping = {
             neuron_id: idx 
             for idx, neuron_id in enumerate(
@@ -681,41 +710,18 @@ class NeuralNetwork(nn.Module):
                 )
             )
         }
-        #print("Input Neuron Mapping:", self.input_neuron_mapping)
-        input_neuron_ids = [neuron_id for neuron_id, neuron in self.genome.neuron_genes.items() if neuron.layer == "input" and neuron.enabled]
-        #print("Input Neurons in Genome:", input_neuron_ids)
-
         self._create_network()
-        #print(f"Neural network created for genome {genome.id}")
-        #print("Neuron States:", self.neuron_states)
-        #print("Weights:", self.weights)
-        #print("Biases:", self.biases)
-        #print("Neuron Genes:", self.genome.neuron_genes)
-        #print("Connection Genes:", self.genome.connection_genes)
-        #print("Input Neuron Mapping:", self.input_neuron_mapping)
-        #print("Input Neurons in Genome:", input_neuron_ids)
-        #print("Input Neurons in Network:", self.input_neuron_mapping.keys())
-        #print("Output Neurons in Network:", [gene.id for gene in self.genome.neuron_genes.values() if gene.layer == "output" and gene.enabled])
-        #print("Network:", self)
-        #print("Network:", self.genome.network)
-
-        # Store the newly created network in the genome
         genome.network = self
-        #self.print_neuron_info()
 
     def _create_network(self):
-        # Create weights for each connection in the genome
         self.weights = nn.ParameterDict({
             f"{gene.from_neuron}_{gene.to_neuron}": nn.Parameter(torch.tensor(gene.weight, dtype=torch.float32))
             for gene in self.genome.connection_genes.values() if gene.enabled
         })
-
-        # Create biases for all neurons in the genome
         self.biases = nn.ParameterDict({
             f"bias_{gene.id}": nn.Parameter(torch.tensor(gene.bias, dtype=torch.float32))
             for gene in self.genome.neuron_genes.values() if gene.enabled
         })
-
     def print_neuron_info(self):
         print("Neuron Information Snapshot:")
         for neuron_id, neuron_gene in self.genome.neuron_genes.items():
@@ -725,32 +731,20 @@ class NeuralNetwork(nn.Module):
                 print(f"Neuron ID: {neuron_id}, Layer: {neuron_gene.layer}, Activation: {neuron_gene.activation}, Bias: {bias_value}")
 
     def reset_neuron_states(self):
-        # Initialize states for all neurons (input, hidden, output) that are part of the network
         self.neuron_states = {neuron_id: torch.zeros(1) for neuron_id, neuron in self.genome.neuron_genes.items() if neuron.enabled}
-
 
     def forward(self, input):
         if input.shape[0] != len(self.input_neuron_mapping):
             raise ValueError(f"Input size mismatch. Expected {len(self.input_neuron_mapping)}, got {input.shape[0]}")
-
-        # Reset neuron states
         self.reset_neuron_states()
-
-        # Update input neurons" states
         for neuron_id, idx in self.input_neuron_mapping.items():
             self.neuron_states[neuron_id] = input[idx]
-
-        # Process connections and update neuron states
         for gene in self.genome.connection_genes.values():
             if gene.enabled:
                 weight = self.weights[f"{gene.from_neuron}_{gene.to_neuron}"]
                 from_neuron_id = gene.from_neuron
                 to_neuron_id = gene.to_neuron
-
-                # Update the state of the target neuron
                 self.neuron_states[to_neuron_id] += weight * self.neuron_states[from_neuron_id]
-
-        # Apply activation functions and biases
         for neuron_id, neuron_gene in self.genome.neuron_genes.items():
             if neuron_gene.enabled:
                 activation_function = getattr(activation_functions, neuron_gene.activation)
@@ -758,11 +752,8 @@ class NeuralNetwork(nn.Module):
                 if bias_key in self.biases:
                     self.neuron_states[neuron_id] = self.neuron_states[neuron_id] + self.biases[bias_key]
                 self.neuron_states[neuron_id] = activation_function(self.neuron_states[neuron_id])
-
-        # Extract output from output neurons
         output_neurons = [neuron_id for neuron_id in self.neuron_states if self.genome.neuron_genes[neuron_id].layer == "output"]
         output = torch.cat([self.neuron_states[neuron_id] for neuron_id in output_neurons])
-
         return output
 
 class Config:
