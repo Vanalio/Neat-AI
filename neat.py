@@ -11,7 +11,7 @@
 # CHECK: purge redundant methods
 
 import random
-#import multiprocessing
+import matplotlib.pyplot as plt
 import gymnasium as gym
 import pickle
 import torch
@@ -22,34 +22,51 @@ import re
 # custom imports
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager, InnovationManager
-from visualization import simple_plot, visualize_genome
+from visualization import visualize_genome
 
 def neat():
-    population = Population(first=True)
-    first_genome = next(iter(population.genomes.values()))
+    plt.ion()  # Turn on interactive mode
+    fig, ax = plt.subplots(2, 1, figsize=(10, 12))  # Create a figure with 2 subplots
 
-    visualize_genome(first_genome)
+    population = Population(first=True)
 
     species_data = []
     fitness_data = []
 
     for generation in range(config.generations):
         print(f"\nGeneration: {generation + 1}:")
-    
+
         population.evolve()
-    
+
         species_data.append(len(population.species))
         fitness_data.append(population.max_fitness)
-        simple_plot(species_data, "Species", "Generations")
-        simple_plot(fitness_data, "Max fitness", "Generations")
-    
+
+        # Update species data plot
+        ax[0].cla()
+        ax[0].plot(species_data, label="Species")
+        ax[0].set_title("Species Over Generations")
+        ax[0].set_xlabel("Generations")
+        ax[0].set_ylabel("Species Count")
+
+        # Update fitness data plot
+        ax[1].cla()
+        ax[1].plot(fitness_data, label="Max Fitness")
+        ax[1].set_title("Max Fitness Over Generations")
+        ax[1].set_xlabel("Generations")
+        ax[1].set_ylabel("Fitness")
+
+        plt.draw()
+        plt.pause(0.1)  # Pause briefly to update the plots
+
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"population_gen_{generation}.pkl")
-    
+
     population.save_genomes_to_file("final_population.pkl")
-    visualize_genome(population.best_genome)
-    print("Total ID generated:", IdManager.get_new_innovation_number())
+    print("Total ID generated:", IdManager.get_new_id())
     print("Total Innovations generated:", InnovationManager.get_new_innovation_number())
+
+    plt.ioff()  # Turn off interactive mode
+    plt.show()  # Show the final plot
 
 class Population:
     def __init__(self, first=False):
@@ -72,8 +89,7 @@ class Population:
         for _ in range(config.population_size):
             genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
             self.genomes[genome.id] = genome
-        print(f"Genomes created for first population: {len(self.genomes)}")
-        print("Genomes composed of:")
+        print(f"Genomes created for first population: {len(self.genomes)} - as follows:")
         for genome in self.genomes.values():
             print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
 
@@ -155,6 +171,7 @@ class Population:
             print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
 
     def stat_and_sort(self):
+        print("\nStats and sorting...")
         # Calculate species fitness stats, find elites and sort genomes
         for _, species in self.species.items():
             sorted_genomes = sorted(species.genomes.values(), key=lambda genome: genome.fitness, reverse=True)
@@ -177,6 +194,7 @@ class Population:
         print(f"Max fitness: {self.max_fitness}", "Best genome:", self.best_genome.id if self.best_genome else None)
 
     def prune(self):
+        print("\nPruning population...")
         # Prune genomes from species
         for species_instance in self.species.values():
             print(f"Discarding the least fit genomes from species {species_instance.id}...")
@@ -209,7 +227,7 @@ class Population:
             print(f"Culled {cutoff} species, {len(self.species)} surviving")
 
     def form_next_generation(self):   
-        print("Forming next generation...")
+        print("\nForming next generation...")
         next_gen_genomes = {}
         
         # Carry over elites and reproduce
@@ -222,6 +240,7 @@ class Population:
         # Initialize a new population instance with the next generation genomes
         self.__init__()
         self.genomes = next_gen_genomes_with_genes
+        print(f"\nGenomes created for next generation: {len(self.genomes)} - as follows:")
         for genome in self.genomes.values():
             print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
     
@@ -373,7 +392,7 @@ class Genome:
         for neuron_id in neuron_ids:
             new_neuron = NeuronGene(layer, neuron_id)
             self.neuron_genes[neuron_id] = new_neuron
-            print(f"Genome {self.id}: added neuron {neuron_id} to layer {layer}")
+            #print(f"Added neuron {neuron_id} to genome {self.id} in layer {layer}")
 
     def attempt_connections(self, from_layer=None, to_layer=None, attempts=1):
         #print(f"Attempting {attempts} connections for genome {self.id}...")
@@ -416,7 +435,7 @@ class Genome:
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
                 self.connection_genes[new_connection.id] = new_connection
-                print(f"Added connection in genome {self.id} from {from_neuron.layer} to {to_neuron.layer}")
+                #print(f"Added connection in genome {self.id} from {from_neuron.layer} to {to_neuron.layer}")
 
     def crossover(self, other_genome):
         offspring = Genome()

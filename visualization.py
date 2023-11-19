@@ -13,7 +13,7 @@ def simple_plot(data, title=None, xlabel=None, ylabel=None):
     plt.show()
 
 
-def visualize_genome(genome):
+def visualize_genome(genome, ax=None):
     G = nx.DiGraph()
 
     # Add nodes with styles for different types of neurons
@@ -31,24 +31,11 @@ def visualize_genome(genome):
     # Add edges
     for _, conn_gene in genome.connection_genes.items():
         if conn_gene.enabled:
-            G.add_edge(
-                conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight
-            )
+            G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight)
 
     # Layout
-    pos = nx.spring_layout(G)  # This layout can be adjusted for better visualization
+    pos = nx.spring_layout(G)  # Adjust layout for better visualization
 
     # Draw
-    nx.draw(
-        G,
-        pos,
-        with_labels=True,
-        node_color=[G.nodes[node]["color"] for node in G.nodes],
-        edge_color="black",
-        width=1,
-        linewidths=1,
-        node_size=500,
-        alpha=0.9,
-    )
-
-    plt.show()
+    nx.draw(G, pos, with_labels=True, node_color=[G.nodes[node]["color"] for node in G.nodes],
+            edge_color="black", width=1, linewidths=1, node_size=500, alpha=0.9, ax=ax)
