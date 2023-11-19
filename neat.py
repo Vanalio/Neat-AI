@@ -342,6 +342,9 @@ class Genome:
         output_ids = range(config.input_neurons + 1, config.input_neurons + config.output_neurons + 1)
         # Add initial neurons
         self.add_initial_neurons(input_ids, output_ids)
+        # Set starting ID for IdManager to be one higher than the last output neuron ID
+        last_output_id = config.input_neurons + config.output_neurons
+        IdManager.set_starting_id(last_output_id)
         # Attempt to create initial connections
         max_possible_conn = config.hidden_neurons * (config.input_neurons + config.hidden_neurons + config.output_neurons)
         attempts = min(config.initial_conn_attempts, max_possible_conn * config.attempts_to_max_factor)

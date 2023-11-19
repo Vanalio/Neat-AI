@@ -11,6 +11,11 @@ class IdManager:
         return cls._instance
 
     @staticmethod
+    def set_starting_id(start_id):
+        instance = IdManager()
+        instance.current_id = start_id
+
+    @staticmethod
     def get_new_id():
         instance = IdManager()
         instance.current_id += 1
