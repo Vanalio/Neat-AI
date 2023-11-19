@@ -1,13 +1,14 @@
-# FIXME: "cull", "weak" and "offspring" must be based on fitness ranking
-# FIXME: parent selection must be based on rank, not chance proportional to fitness
-# FIXME: implement stale species removal (also age, generations without improvement)
+# FIXME: parent selection must be based on chance proportional to rank of genome within the species, not chance proportional to its fitness
+# FIXME: manage input and output neurons during crossover
+# FIXME: implement update of age and generations without improvement
 # FIXME: implement interspecies mating
 
+# CHECK: disabled genes are correctly inherited 
 # CHECK: removals should remove something more than just what they remove (dependencies?)
 # CHECK: purge redundant methods
 
 import random
-import multiprocessing
+#import multiprocessing
 import gymnasium as gym
 import pickle
 import torch
@@ -70,8 +71,10 @@ class Population:
     def evolve(self):
         self.speciate()
         self.evaluate()
+        self.relu_offset_fitness()
         self.stat_and_sort()
         self.prune()
+        self.stat_and_sort()
         self.form_next_generation()
 
     def speciate(self):
@@ -132,27 +135,36 @@ class Population:
 
         environment.close()
 
-        print(f"Genome ID: {genome.id}, Fitness: {total_reward}")
         return total_reward
 
-    def stat_and_sort(self):
-        self.max_fitness = None
-        self.best_genome = None
+    def relu_offset_fitness(self):
 
-        # Genome fitness stats
         for _, genome in self.genomes.items():
-            if self.max_fitness is None or genome.fitness > self.max_fitness:
-                self.max_fitness = genome.fitness
-                self.best_genome = genome
+            genome.fitness = max(0, genome.fitness + 50)
 
-        # Species fitness stats
+        for _, genome in self.genomes.items():
+            print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
+
+    def stat_and_sort(self):
+        # Calculate species fitness stats, find elites and sort genomes
         for _, species in self.species.items():
             sorted_genomes = sorted(species.genomes.values(), key=lambda genome: genome.fitness, reverse=True)
             species.genomes = {genome.id: genome for genome in sorted_genomes}
             species.elites = {genome.id: genome for genome in sorted_genomes[:config.elites_per_species]}
-            species.average_shared_fitness = sum(genome.fitness for _, genome in species.genomes.items()) / len(species.genomes) if species.genomes else 0
+            species.total_fitness = sum(genome.fitness for genome in species.genomes.values())
+            species.average_shared_fitness = species.total_fitness / (len(species.genomes) ** 2)
             print(f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}")
 
+        self.max_fitness = None
+        self.best_genome = None
+        sorted_species = sorted(self.species.items(), key=lambda item: item[1].average_shared_fitness, reverse=True)
+        self.species = {species_id: species for species_id, species in sorted_species}
+
+        # Calculate population fitness stats
+        for _, genome in self.genomes.items():
+            if self.max_fitness is None or genome.fitness > self.max_fitness:
+                self.max_fitness = genome.fitness
+                self.best_genome = genome
         print(f"Max fitness: {self.max_fitness}", "Best genome:", self.best_genome.id if self.best_genome else None)
 
     def prune(self):
@@ -167,14 +179,25 @@ class Population:
         removal_count = 0
         
         for species_instance in self.species.values():
-            if removal_count < max_removal_count:
-                del self.species[species_instance.id]
-                print(f"Removed weak species ID: {species_instance.id}")
-                removal_count += 1
-            else:
-                print(f"Reached max removal count of {max_removal_count}, stopping...")
-                break
-        print(f"Removed {removal_count} weak species, {len(self.species)} species remaining")
+            if species_instance.generations_without_improvement >= config.max_stagnation:
+                if removal_count < max_removal_count:
+                # Remove stale species
+                    del self.species[species_instance.id] # FIXME: remove also dependant objects
+                    print(f"Removed stale species ID: {species_instance.id} with generations without improvement: {species_instance.generations_without_improvement}")
+                    removal_count += 1
+                else:
+                    print(f"Cannot remove stale species ID: {species_instance.id}, max removal count reached")
+                    break
+        print(f"Removed {removal_count} stale species, {len(self.species)} species surviving")
+
+        if removal_count < max_removal_count:
+            # Remove weak species
+            if not 0 < GIVE_ME_NAME <= 1:
+                raise ValueError("GIVE_ME_NAME must be between 0 and 1.")
+            original_count = len(self.species)
+            cutoff = max(1, int(original_count * GIVE_ME_NAME))
+            self.species = dict(list(self.species.items())[:cutoff])
+            print(f"Culled {cutoff} species, {len(self.species)} surviving")
 
     def form_next_generation(self):   
         print("Forming next generation...")
@@ -215,11 +238,9 @@ class Population:
     def get_offspring_count(self, species_instance, next_gen_genomes):
         # Calculate total offspring needed
         total_offspring_needed = config.population_size - len(next_gen_genomes)
-        # Sort species based on average shared fitness (higher is better)
-        sorted_species = sorted(self.species.values(), key=lambda s: s.average_shared_fitness, reverse=True)
-        # Find the rank of the given species
-        rank = sorted_species.index(species_instance) + 1
-        total_rank_sum = sum(1 / i for i in range(1, len(sorted_species) + 1))
+        # Calculate the rank of the given species
+        rank = list(self.species.keys()).index(species_instance.id) + 1
+        total_rank_sum = sum(1 / i for i in range(1, len(self.species) + 1))
         # Calculate the offspring count for the given species
         offspring_count = int((total_offspring_needed * (1 / rank)) / total_rank_sum)
 
@@ -261,7 +282,7 @@ class Species:
         cutoff = max(1, int(original_count * keep_best_percentage))
         self.genomes = dict(list(self.genomes.items())[:cutoff])
         print(f"Culled a total of {original_count - cutoff} genomes from species {self.id}, {len(self.genomes)} genomes remaining")
-        # FIXME: remove dependencies
+        # FIXME: order genomes, remove also dependant objects
 
     def produce_offspring(self, offspring_count=1):
         print(f"Producing {offspring_count} offspring(s) for species {self.id}...")
@@ -337,11 +358,10 @@ class Genome:
         return new_genome
 
     def add_neurons(self, layer, count):
-        #print(f"Adding {count} {layer} neurons to genome {self.id}...")
         for _ in range(count):
-            # Create a new neuron and add it to the neuron_genes dictionary
             new_neuron = NeuronGene(layer)
             self.neuron_genes[new_neuron.id] = new_neuron
+            print(f"Genome {self.id}: added neuron {new_neuron.id} to layer {layer}")
 
     def attempt_connections(self, from_layer=None, to_layer=None, attempts=1):
         #print(f"Attempting {attempts} connections for genome {self.id}...")
@@ -384,6 +404,7 @@ class Genome:
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
                 self.connection_genes[new_connection.id] = new_connection
+                print(f"Added connection in genome {self.id} from {from_neuron.layer} to {to_neuron.layer}")
 
     def  crossover(self, other_genome):
         #print(f"Crossing over genome {self.id} with genome {other_genome.id}...")
@@ -437,12 +458,11 @@ class Genome:
         return offspring
 
     def mutate(self):
-        #print(f"Mutating genome {self.id}...")
         if random.random() < config.gene_add_chance:
-            self.attempt_connections()
+            self.mutate_add_connection()
 
         if random.random() < config.neuron_add_chance:
-            self.add_neurons("hidden", 1)
+            self.mutate_add_neuron()
 
         if random.random() < config.weight_mutate_chance:
             self.mutate_weight()
@@ -461,46 +481,86 @@ class Genome:
 
         self.network_needs_rebuild = True
 
+    def mutate_add_neuron(self):
+        # Ensure there are enabled connection genes to split
+        enabled_genes = [gene for gene in self.connection_genes.values() if gene.enabled]
+        if not enabled_genes:
+            print("No enabled connections to split for genome", self.id)
+            return
+
+        # Choose a random enabled connection gene to split
+        gene_to_split = random.choice(enabled_genes)
+        
+        # Disable the chosen connection gene
+        gene_to_split.enabled = False
+
+        # Create a new neuron gene in the hidden layer
+        new_neuron = NeuronGene("hidden")
+        self.neuron_genes[new_neuron.id] = new_neuron
+
+        # Create two new connection genes
+        # Connection from the start of the original connection to the new neuron
+        new_connection1 = ConnectionGene(gene_to_split.from_neuron, new_neuron.id)
+        self.connection_genes[new_connection1.id] = new_connection1
+
+        # Connection from the new neuron to the end of the original connection
+        new_connection2 = ConnectionGene(new_neuron.id, gene_to_split.to_neuron)
+        self.connection_genes[new_connection2.id] = new_connection2
+
+        # Set weight of the new connections
+        new_connection1.weight = 1  # or some other desired initialization
+        new_connection2.weight = gene_to_split.weight  # inherit weight from the split gene
+
+        print(f"Added neuron {new_neuron.id} to genome {self.id} and split connection {gene_to_split.id} into connections {new_connection1.id} and {new_connection2.id}")
+
+    def mutate_add_connection(self):
+            connection_attempts = [
+                lambda: self.attempt_connections(from_layer="input", to_layer="hidden", attempts=1),
+                lambda: self.attempt_connections(from_layer="hidden", to_layer="hidden", attempts=1),
+                lambda: self.attempt_connections(from_layer="hidden", to_layer="output", attempts=1)
+            ]
+            random.choice(connection_attempts)()
+
     def mutate_weight(self):
-        print(f"Mutating weights for genome {self.id}...")
-        for conn_gene in self.connection_genes.values():
-            if random.random() < config.weight_mutate_factor:
-                perturb = random.uniform(-1, 1) * config.weight_mutate_factor
-                conn_gene.weight += perturb
-            else:
-                conn_gene.weight = random.uniform(*config.weight_init_range)
+        # first choose a random connection gene to mutate
+        gene_to_mutate = random.choice(list(self.connection_genes.values()))
+        # then choose whether to perturb or set the weight
+        if random.random() < config.weight_perturb_vs_set_chance:
+            gene_to_mutate.weight = random.uniform(-1, 1) * config.weight_mutate_factor * gene_to_mutate.weight
+            print(f"Perturbed weight for genome {self.id} by factor {config.weight_mutate_factor} to {gene_to_mutate.weight}")
+        else:
+            gene_to_mutate.weight = random.uniform(*config.weight_init_range)
+            print(f"Set weight for genome {self.id} to {gene_to_mutate.weight}")
 
     def mutate_bias(self):
-        print(f"Mutating biases for genome {self.id}...")
-        for neuron_gene in self.neuron_genes.values():
-            if random.random() < config.bias_mutate_chance:
-                perturb = random.uniform(-1, 1) * config.bias_mutate_factor
-                neuron_gene.bias += perturb
-            else:
-                neuron_gene.bias = random.uniform(*config.bias_init_range)
+        # first choose a random not input layer neuron gene to mutate
+        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
+        # then choose whether to perturb or set the bias
+        if random.random() < config.bias_perturb_vs_set_chance:
+            gene_to_mutate.bias = random.uniform(-1, 1) * config.bias_mutate_factor * gene_to_mutate.bias
+            print(f"Perturbed bias of neuron {gene_to_mutate.id} in genome {self.id} by factor {config.bias_mutate_factor} to {gene_to_mutate.bias}")
+        else:
+            gene_to_mutate.bias = random.uniform(*config.bias_init_range)
+            print(f"Set bias of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.bias}")
 
     def mutate_activation_function(self):
-        print(f"Mutating activation functions for genome {self.id}...")
-        available_functions = activation_functions.get_activation_functions()
-
-        for neuron_gene in self.neuron_genes.values():
-            if random.random() < config.activation_mutate_chance:
-                neuron_gene.activation = random.choice(available_functions)
+        if random.random() < config.activation_mutate_chance:
+            available_functions = activation_functions.get_activation_functions()
+            gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
+            gene_to_mutate.activation = random.choice(available_functions)
+            print(f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}")
 
     def mutate_gene_toggle(self):
-        print(f"Mutating gene toggles for genome {self.id}...")
-        for conn_gene in self.connection_genes.values():
-            if random.random() < config.gene_toggle_chance:
-                conn_gene.enabled = not conn_gene.enabled
-
+        if random.random() < config.gene_toggle_chance:
+            gene_to_mutate = random.choice([gene for gene in self.connection_genes.values()])
+            gene_to_mutate.enabled = not gene_to_mutate.enabled
+            print(f"Toggled gene {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
+    
     def mutate_neuron_toggle(self):
-        print(f"Mutating neuron toggles for genome {self.id}...")
-        for neuron_gene in self.neuron_genes.values():
-            # Check if the neuron is a hidden neuron
-            if neuron_gene.layer == "hidden":
-                if random.random() < config.neuron_toggle_chance:
-                    neuron_gene.enabled = not neuron_gene.enabled
-                    print(f"Toggled neuron {neuron_gene.id}, new state: {'enabled' if neuron_gene.enabled else 'disabled'}")
+        if random.random() < config.neuron_toggle_chance:
+            gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
+            gene_to_mutate.enabled = not gene_to_mutate.enabled
+            print(f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
 
     def build_network(self):
         print(f"Building network for genome {self.id}...")
