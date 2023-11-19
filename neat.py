@@ -3,6 +3,7 @@
 # FIXME: implement update of age and generations without improvement
 # FIXME: implement interspecies mating
 
+# CHECK: check if the network is built correctly and the computation is correct
 # CHECK: disabled genes are correctly inherited 
 # CHECK: removals should remove something more than just what they remove (dependencies?)
 # CHECK: purge redundant methods
@@ -192,10 +193,10 @@ class Population:
 
         if removal_count < max_removal_count:
             # Remove weak species
-            if not 0 < GIVE_ME_NAME <= 1:
-                raise ValueError("GIVE_ME_NAME must be between 0 and 1.")
+            if not 0 < config.weak_threshold <= 1:
+                raise ValueError("config.weak_threshold must be between 0 and 1.")
             original_count = len(self.species)
-            cutoff = max(1, int(original_count * GIVE_ME_NAME))
+            cutoff = max(1, int(original_count * config.weak_threshold))
             self.species = dict(list(self.species.items())[:cutoff])
             print(f"Culled {cutoff} species, {len(self.species)} surviving")
 
@@ -406,21 +407,20 @@ class Genome:
                 self.connection_genes[new_connection.id] = new_connection
                 print(f"Added connection in genome {self.id} from {from_neuron.layer} to {to_neuron.layer}")
 
-    def  crossover(self, other_genome):
-        #print(f"Crossing over genome {self.id} with genome {other_genome.id}...")
+    def crossover(self, other_genome):
         offspring = Genome()
 
+        # Inherit all input and output neurons from one parent (e.g., self)
+        for neuron_id, neuron_gene in self.neuron_genes.items():
+            if neuron_gene.layer in ["input", "output"]:
+                offspring.neuron_genes[neuron_id] = neuron_gene.copy()
+
+        # Handle connection genes (both matching and disjoint/excess genes)
         genes1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
         genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
-
         all_innovations = set(genes1.keys()) | set(genes2.keys())
 
-        # Determine the more fit parent, or None if they have equal fitness
-        more_fit_parent = None
-        if self.fitness > other_genome.fitness:
-            more_fit_parent = self
-        elif self.fitness < other_genome.fitness:
-            more_fit_parent = other_genome
+        more_fit_parent = self if self.fitness > other_genome.fitness else other_genome if self.fitness < other_genome.fitness else None
 
         for innovation_number in all_innovations:
             gene1 = genes1.get(innovation_number)
@@ -428,37 +428,43 @@ class Genome:
 
             offspring_gene = None
             if gene1 and gene2:  # Matching genes
-                offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+                # If one parent's gene is disabled, there's a chance to inherit the disabled state
+                if not gene1.enabled or not gene2.enabled:
+                    probability_to_disable = config.matching_disabled_connection_chance if more_fit_parent else config.matching_disabled_connection_chance / 2
+                    offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+                    offspring_gene.enabled = False if random.random() < probability_to_disable else offspring_gene.enabled
+                else:
+                    offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+
             elif gene1 or gene2:  # Disjoint or excess genes
                 if more_fit_parent:
-                    parent_gene = genes1.get(innovation_number) if more_fit_parent == self else genes2.get(innovation_number)
+                    parent_gene = gene1 if more_fit_parent == self else gene2
                     if parent_gene:
                         offspring_gene = parent_gene.copy(retain_innovation_number=True)
-                else:  # Fitness is equal, choose randomly
+                else:  # Equal fitness, choose randomly
                     parent_gene = gene1 if gene1 else gene2
                     offspring_gene = parent_gene.copy(retain_innovation_number=True)
 
             if offspring_gene:
                 offspring.connection_genes[offspring_gene.id] = offspring_gene
 
-        # Inherit neuron genes
-        neurons_to_inherit = set()
+        # Inherit hidden neurons associated with the inherited connections
+        hidden_neurons_to_inherit = set()
         for cg in offspring.connection_genes.values():
-            neurons_to_inherit.add(cg.from_neuron)
-            neurons_to_inherit.add(cg.to_neuron)
+            hidden_neurons_to_inherit.update([cg.from_neuron, cg.to_neuron])
 
-        for neuron_id in neurons_to_inherit:
-            neuron1 = self.neuron_genes.get(neuron_id)
-            neuron2 = other_genome.neuron_genes.get(neuron_id)
-
-            if neuron1 or neuron2:
-                neuron_to_add = neuron1.copy() if neuron1 else neuron2.copy()
-                offspring.neuron_genes[neuron_to_add.id] = neuron_to_add
+        for neuron_id in hidden_neurons_to_inherit:
+            if neuron_id not in offspring.neuron_genes:
+                neuron1 = self.neuron_genes.get(neuron_id)
+                neuron2 = other_genome.neuron_genes.get(neuron_id)
+                if neuron1 or neuron2:
+                    neuron_to_add = neuron1.copy() if neuron1 else neuron2.copy()
+                    offspring.neuron_genes[neuron_to_add.id] = neuron_to_add
 
         return offspring
 
     def mutate(self):
-        if random.random() < config.gene_add_chance:
+        if random.random() < config.connection_add_chance:
             self.mutate_add_connection()
 
         if random.random() < config.neuron_add_chance:
@@ -473,13 +479,21 @@ class Genome:
         if random.random() < config.activation_mutate_chance:
             self.mutate_activation_function()
 
-        if random.random() < config.gene_toggle_chance:
+        if random.random() < config.connection_toggle_chance:
             self.mutate_gene_toggle()
 
         if random.random() < config.neuron_toggle_chance:
             self.mutate_neuron_toggle()
 
         self.network_needs_rebuild = True
+
+    def mutate_add_connection(self):
+            connection_attempts = [
+                lambda: self.attempt_connections(from_layer="input", to_layer="hidden", attempts=1),
+                lambda: self.attempt_connections(from_layer="hidden", to_layer="hidden", attempts=1),
+                lambda: self.attempt_connections(from_layer="hidden", to_layer="output", attempts=1)
+            ]
+            random.choice(connection_attempts)()
 
     def mutate_add_neuron(self):
         # Ensure there are enabled connection genes to split
@@ -513,14 +527,6 @@ class Genome:
 
         print(f"Added neuron {new_neuron.id} to genome {self.id} and split connection {gene_to_split.id} into connections {new_connection1.id} and {new_connection2.id}")
 
-    def mutate_add_connection(self):
-            connection_attempts = [
-                lambda: self.attempt_connections(from_layer="input", to_layer="hidden", attempts=1),
-                lambda: self.attempt_connections(from_layer="hidden", to_layer="hidden", attempts=1),
-                lambda: self.attempt_connections(from_layer="hidden", to_layer="output", attempts=1)
-            ]
-            random.choice(connection_attempts)()
-
     def mutate_weight(self):
         # first choose a random connection gene to mutate
         gene_to_mutate = random.choice(list(self.connection_genes.values()))
@@ -544,23 +550,20 @@ class Genome:
             print(f"Set bias of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.bias}")
 
     def mutate_activation_function(self):
-        if random.random() < config.activation_mutate_chance:
-            available_functions = activation_functions.get_activation_functions()
-            gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
-            gene_to_mutate.activation = random.choice(available_functions)
-            print(f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}")
+        available_functions = activation_functions.get_activation_functions()
+        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
+        gene_to_mutate.activation = random.choice(available_functions)
+        print(f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}")
 
     def mutate_gene_toggle(self):
-        if random.random() < config.gene_toggle_chance:
-            gene_to_mutate = random.choice([gene for gene in self.connection_genes.values()])
-            gene_to_mutate.enabled = not gene_to_mutate.enabled
-            print(f"Toggled gene {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
+        gene_to_mutate = random.choice([gene for gene in self.connection_genes.values()])
+        gene_to_mutate.enabled = not gene_to_mutate.enabled
+        print(f"Toggled gene {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
     
     def mutate_neuron_toggle(self):
-        if random.random() < config.neuron_toggle_chance:
-            gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
-            gene_to_mutate.enabled = not gene_to_mutate.enabled
-            print(f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
+        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
+        gene_to_mutate.enabled = not gene_to_mutate.enabled
+        print(f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}")
 
     def build_network(self):
         print(f"Building network for genome {self.id}...")
