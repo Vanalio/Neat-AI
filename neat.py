@@ -337,27 +337,18 @@ class Genome:
         self.fitness = None
 
     def create(self):
-        # Standard IDs for input and output neurons
-        input_ids = range(1, config.input_neurons + 1)
-        output_ids = range(config.input_neurons + 1, config.input_neurons + config.output_neurons + 1)
-        # Add initial neurons
-        self.add_initial_neurons(input_ids, output_ids)
-        # Set starting ID for IdManager to be one higher than the last output neuron ID
-        last_output_id = config.input_neurons + config.output_neurons
-        IdManager.set_starting_id(last_output_id)
+        # Use IdManager to assign IDs for input, output, and hidden initial neurons
+        input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
+        output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
+        # Add neurons
+        self.add_neurons("input", count=config.input_neurons, neuron_ids=input_ids)
+        self.add_neurons("output", count=config.output_neurons, neuron_ids=output_ids)
+        self.add_neurons("hidden", config.hidden_neurons)
         # Attempt to create initial connections
         max_possible_conn = config.hidden_neurons * (config.input_neurons + config.hidden_neurons + config.output_neurons)
         attempts = min(config.initial_conn_attempts, max_possible_conn * config.attempts_to_max_factor)
         self.attempt_connections(from_layer=None, to_layer=None, attempts=attempts)
         return self
-
-    def add_initial_neurons(self, input_ids, output_ids):
-        # Add input neurons
-        self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
-        # Add output neurons
-        self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
-        # Add hidden neurons
-        self.add_neurons("hidden", config.hidden_neurons)
 
     def copy(self):
         #print(f"Copying genome {self.id}...")
