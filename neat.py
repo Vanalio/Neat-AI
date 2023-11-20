@@ -1,4 +1,4 @@
-from neat_classes import Population
+from population_and_species import Population
 from config import Config
 
 config = Config("config.ini", "DEFAULT")
