@@ -13,7 +13,7 @@ def neat():
 
     # Evolve for n generations
     for generation in range(config.generations):
-        print(f"\GENERATION: {generation + 1}")
+        print(f"\nGENERATION: {generation + 1}")
 
         population.evolve()
 
