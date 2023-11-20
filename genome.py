@@ -13,9 +13,9 @@ class Genome:
         self.id = IdManager.get_new_id()
         self.neuron_genes = {}
         self.connection_genes = {}
+        self.fitness = None
         self.network = None
         self.network_needs_rebuild = True
-        self.fitness = None
 
     def create(self, input_ids, output_ids, hidden_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
@@ -53,7 +53,7 @@ class Genome:
                 attempting_from_layer = random.choice(from_layers)
                 if attempting_from_layer == "input":
                     attempting_to_layer = "hidden"
-                elif attempting_from_layer == "hidden":
+                else:
                     attempting_to_layer = random.choice(["hidden", "output"])
                 from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer]
                 to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer]
@@ -101,7 +101,14 @@ class Genome:
         genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
         all_innovations = set(genes1.keys()) | set(genes2.keys())
 
-        more_fit_parent = self if self.fitness > other_genome.fitness else other_genome if self.fitness < other_genome.fitness else None
+        if self.fitness is None and other_genome.fitness is None:
+            more_fit_parent = None
+        elif self.fitness is None:
+            more_fit_parent = other_genome
+        elif other_genome.fitness is None:
+            more_fit_parent = self
+        else:
+            more_fit_parent = self if self.fitness > other_genome.fitness else other_genome if self.fitness < other_genome.fitness else None
 
         for innovation_number in all_innovations:
             gene1 = genes1.get(innovation_number)
@@ -109,38 +116,57 @@ class Genome:
 
             offspring_gene = None
             if gene1 and gene2:  # Matching genes
-                # If one parent's gene is disabled, there's a chance to inherit the disabled state
-                if not gene1.enabled or not gene2.enabled:
-                    probability_to_disable = config.matching_disabled_connection_chance if more_fit_parent else config.matching_disabled_connection_chance / 2
-                    offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
-                    offspring_gene.enabled = False if random.random() < probability_to_disable else offspring_gene.enabled
+                # Determine the gene state based on the more fit parent
+                if more_fit_parent:
+                    # Inherit the gene state from the more fit parent
+                    parent_gene = gene1 if more_fit_parent == self else gene2
+                    offspring_gene = parent_gene.copy(retain_innovation_number=True)
                 else:
-                    offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+                    # If fitness is equal, optionally handle disabled state
+                    if not gene1.enabled or not gene2.enabled:
+                        probability_to_disable = config.matching_disabled_connection_chance
+                        offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
+                        offspring_gene.enabled = False if random.random() < probability_to_disable else offspring_gene.enabled
+                    else:
+                        offspring_gene = random.choice([gene1, gene2]).copy(retain_innovation_number=True)
 
             elif gene1 or gene2:  # Disjoint or excess genes
                 if more_fit_parent:
+                    # Choose the gene from the more fit parent
                     parent_gene = gene1 if more_fit_parent == self else gene2
-                    if parent_gene:
-                        offspring_gene = parent_gene.copy(retain_innovation_number=True)
-                else:  # Equal fitness, choose randomly
-                    parent_gene = gene1 if gene1 else gene2
-                    offspring_gene = parent_gene.copy(retain_innovation_number=True)
+                    offspring_gene = parent_gene.copy(retain_innovation_number=True) if parent_gene else None
+                else:
+                    # For equal fitness, randomly choose between gene1, gene2 (which might already be None)
+                    offspring_gene = random.choice([gene1, gene2])
+                    if offspring_gene:
+                        offspring_gene = offspring_gene.copy(retain_innovation_number=True)
 
             if offspring_gene:
                 offspring.connection_genes[offspring_gene.id] = offspring_gene
 
-        # Inherit hidden neurons associated with the inherited connections
-        hidden_neurons_to_inherit = set()
-        for cg in offspring.connection_genes.values():
-            hidden_neurons_to_inherit.update([cg.from_neuron, cg.to_neuron])
+        # Inherit hidden neurons referenced in connection genes
+        hidden_neuron_ids = set()
+        for conn_gene in offspring.connection_genes.values():
+            from_neuron_id, to_neuron_id = conn_gene.from_neuron, conn_gene.to_neuron
 
-        for neuron_id in hidden_neurons_to_inherit:
-            if neuron_id not in offspring.neuron_genes:
-                neuron1 = self.neuron_genes.get(neuron_id)
-                neuron2 = other_genome.neuron_genes.get(neuron_id)
-                if neuron1 or neuron2:
-                    neuron_to_add = neuron1.copy() if neuron1 else neuron2.copy()
-                    offspring.neuron_genes[neuron_to_add.id] = neuron_to_add
+            # Check if the neuron IDs are hidden neurons in either parent
+            if (self.neuron_genes.get(from_neuron_id) and self.neuron_genes[from_neuron_id].layer == "hidden") or \
+            (other_genome.neuron_genes.get(from_neuron_id) and other_genome.neuron_genes[from_neuron_id].layer == "hidden"):
+                hidden_neuron_ids.add(from_neuron_id)
+
+            if (self.neuron_genes.get(to_neuron_id) and self.neuron_genes[to_neuron_id].layer == "hidden") or \
+            (other_genome.neuron_genes.get(to_neuron_id) and other_genome.neuron_genes[to_neuron_id].layer == "hidden"):
+                hidden_neuron_ids.add(to_neuron_id)
+
+        for neuron_id in hidden_neuron_ids:
+            # Randomly choose the parent from which to inherit each hidden neuron
+            if neuron_id in self.neuron_genes and neuron_id in other_genome.neuron_genes:
+                chosen_parent = self if random.random() < 0.5 else other_genome
+                offspring.neuron_genes[neuron_id] = chosen_parent.neuron_genes[neuron_id].copy()
+            elif neuron_id in self.neuron_genes:
+                offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
+            elif neuron_id in other_genome.neuron_genes:
+                offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy()
 
         return offspring
 

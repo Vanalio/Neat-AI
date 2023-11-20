@@ -25,6 +25,7 @@ class NeuronGene:
         new_gene.activation = self.activation
         new_gene.bias = self.bias
         new_gene.enabled = self.enabled
+
         return new_gene
 
 class ConnectionGene:
@@ -36,12 +37,10 @@ class ConnectionGene:
         self.weight = random.uniform(*config.weight_init_range)
         self.enabled = True
 
-    def __repr__(self):
-        return f"ConnectionGene(innovation_number={self.innovation_number}, from_neuron={self.from_neuron}, to_neuron={self.to_neuron}, weight={self.weight})"
-
     def copy(self, retain_innovation_number=True):
         new_gene = ConnectionGene(self.from_neuron, self.to_neuron, self.id)
         new_gene.weight = self.weight
         new_gene.enabled = self.enabled
         new_gene.innovation_number = self.innovation_number if retain_innovation_number else InnovationManager.get_new_innovation_number()
+
         return new_gene

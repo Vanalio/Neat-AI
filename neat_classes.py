@@ -1,10 +1,12 @@
 import random
 import gymnasium as gym
+import torch
 import pickle
+import gymnasium as gym
 
-from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
 from genome import Genome
+from neural_network import NeuralNetwork
 from config import Config
 
 config = Config("config.ini", "DEFAULT")
@@ -91,37 +93,37 @@ class Population:
     def evaluate_parallel(self):
         pass
 
-    #def evaluate_single_genome(self, genome):
-    #    # Reset environment to initial state
-    #    observation = self.environment.reset()
-    #    
-    #    # Extract observation array from tuple if necessary
-    #    if isinstance(observation, tuple):
-    #        observation = observation[0]
-#
-    #    observation = torch.from_numpy(observation).float()
-#
-    #    neural_network = NeuralNetwork(genome)
-    #    done = False
-    #    total_reward = 0
-#
-    #    while not done:
-    #        action = neural_network(observation)
-    #        action = action.detach().cpu().numpy().ravel()
-    #        observation, reward, terminated, truncated, _ = self.environment.step(action)
-    #        total_reward += reward
-#
-    #        # Extract observation array from tuple if necessary
-    #        if isinstance(observation, tuple):
-    #            observation = observation[0]
-#
-    #        observation = torch.from_numpy(observation).float()
-    #        done = terminated or truncated
-#
-    #    return total_reward
-
     def evaluate_single_genome(self, genome):
-        return 1
+        # Reset environment to initial state
+        observation = self.environment.reset()
+        
+        # Extract observation array from tuple if necessary
+        if isinstance(observation, tuple):
+            observation = observation[0]
+    #
+        observation = torch.from_numpy(observation).float()
+    #
+        neural_network = NeuralNetwork(genome)
+        done = False
+        total_reward = 0
+    #
+        while not done:
+            action = neural_network(observation)
+            action = action.detach().cpu().numpy().ravel()
+            observation, reward, terminated, truncated, _ = self.environment.step(action)
+            total_reward += reward
+    #
+            # Extract observation array from tuple if necessary
+            if isinstance(observation, tuple):
+                observation = observation[0]
+    #
+            observation = torch.from_numpy(observation).float()
+            done = terminated or truncated
+    #
+        return total_reward
+
+    #def evaluate_single_genome(self, genome):
+        #return 1
 
     def relu_offset_fitness(self):
 
