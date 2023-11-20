@@ -1,11 +1,9 @@
 import random
 from neural_network import NeuralNetwork
 
-#from memory_profiler import profile
-
-# custom imports
 from torch_activation_functions import ActivationFunctions as activation_functions
-from managers import IdManager, InnovationManager
+from managers import IdManager
+from genes import ConnectionGene, NeuronGene
 from config import Config
 
 config = Config("config.ini", "DEFAULT")
@@ -27,25 +25,8 @@ class Genome:
         max_possible_conn = config.hidden_neurons * (config.input_neurons + config.hidden_neurons + config.output_neurons)
         attempts = min(config.initial_conn_attempts, max_possible_conn * config.attempts_to_max_factor)
         self.attempt_connections(from_layer=None, to_layer=None, attempts=attempts)
+
         return self
-
-    def copy(self):
-        #print(f"Copying genome {self.id}...")
-        new_genome = Genome()  # Creates a new genome with a new ID
-
-        # Copying all neuron genes
-        #for neuron_id, neuron_gene in self.neuron_genes.items():
-            #new_genome.neuron_genes[neuron_id] = neuron_gene.copy()
-        # Copying all connection genes
-        #for conn_id, conn_gene in self.connection_genes.items():
-            #new_genome.connection_genes[conn_id] = conn_gene.copy()
-
-        # Copying all attributes except id to new_genome
-        new_genome.neuron_genes = self.neuron_genes
-        new_genome.connection_genes = self.connection_genes
-        new_genome.fitness = self.fitness
-
-        return new_genome
 
     def add_neurons(self, layer, count, neuron_ids=None):
         if neuron_ids is None:
@@ -273,6 +254,16 @@ class Genome:
         else:
             print(f"No other enabled hidden neurons to toggle in genome {self.id}")
 
+    def copy(self):
+        # Creates a new genome with a new ID
+        new_genome = Genome()
+        # Copying all attributes except id to new_genome
+        new_genome.neuron_genes = self.neuron_genes
+        new_genome.connection_genes = self.connection_genes
+        new_genome.fitness = self.fitness
+
+        return new_genome
+
     def build_network(self):
         print(f"Building network for genome {self.id}...")
         if self.network_needs_rebuild:
@@ -334,44 +325,3 @@ class Genome:
         #print(f"Genome {self.id} vs {other_genome.id} - Distance: {distance}")
 
         return distance
-
-class ConnectionGene:
-    def __init__(self, from_neuron, to_neuron):
-        self.id = IdManager.get_new_id()
-        self.innovation_number = InnovationManager.get_new_innovation_number()
-        self.from_neuron = from_neuron
-        self.to_neuron = to_neuron
-        self.weight = random.uniform(*config.weight_init_range)
-        self.enabled = True
-
-    def __repr__(self):
-        return f"ConnectionGene(innovation_number={self.innovation_number}, from_neuron={self.from_neuron}, to_neuron={self.to_neuron}, weight={self.weight})"
-
-    def copy(self, retain_innovation_number=True):
-        new_gene = ConnectionGene(self.from_neuron, self.to_neuron)
-        new_gene.weight = self.weight
-        new_gene.enabled = self.enabled
-        new_gene.innovation_number = self.innovation_number if retain_innovation_number else InnovationManager.get_new_innovation_number()
-        return new_gene
-
-class NeuronGene:
-    def __init__(self, layer, neuron_id=None):
-        self.id = neuron_id if neuron_id is not None else IdManager.get_new_id()
-        self.layer = layer
-        if layer == "output":
-            self.activation = config.default_output_activation
-            self.bias = random.uniform(*config.bias_init_range)
-        elif layer == "hidden":
-            self.activation = config.default_hidden_activation
-            self.bias = random.uniform(*config.bias_init_range)
-        else:
-            self.activation = "identity"
-            self.bias = 0
-        self.enabled = True
-
-    def copy(self):
-        new_gene = NeuronGene(self.layer, self.id)
-        new_gene.activation = self.activation
-        new_gene.bias = self.bias
-        new_gene.enabled = self.enabled
-        return new_gene

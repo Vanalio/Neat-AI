@@ -2,9 +2,6 @@ import random
 import gymnasium as gym
 import pickle
 
-#from memory_profiler import profile
-
-# custom imports
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
 from genome import Genome
