@@ -22,6 +22,7 @@ class Population:
             self._initialize_neuron_ids()
             self._first_population()
             self.print_neuron_ids()
+            self.speciate()
 
     def _initialize_neuron_ids(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
@@ -43,7 +44,6 @@ class Population:
         print("Hidden Neuron IDs:", self.hidden_ids)
 
     def evolve(self):
-        self.speciate()
         self.evaluate()
         self.relu_offset_fitness()
         self.stat_and_sort()
@@ -122,9 +122,6 @@ class Population:
     #
         return total_reward
 
-    #def evaluate_single_genome(self, genome):
-        #return 1
-
     def relu_offset_fitness(self):
 
         for _, genome in self.genomes.items():
@@ -171,7 +168,6 @@ class Population:
             #print(f"Discarding the least fit genomes from species {species_instance.id}...")
             species_instance.cull(config.keep_best_genomes_in_species)  # Keep only a portion of the genomes
 
-
     def prune_stale_species(self):
         # Prune stale species
         print("\nMass extinction of stale species...")
@@ -212,7 +208,7 @@ class Population:
 
             print(f"Removed weak species, new species count: {len(self.species)}")
 
-    def form_next_generation(self):   
+    def form_next_generation(self):
         print("\nForming next generation...")
         next_gen_genomes = {}
 
@@ -220,13 +216,15 @@ class Population:
         next_gen_genomes = self.carry_over_elites(next_gen_genomes)
         next_gen_genomes = self.reproduce(next_gen_genomes)
         
-        # Initialize a new population instance with the next generation genomes
-        self.__init__()
+        # Reinitialize species and genomes
+        self.species = {}
         self.genomes = next_gen_genomes
 
         for genome in self.genomes.values():
             print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}, Fitness: {genome.fitness}, Disabled connections: {len([gene for gene in genome.connection_genes.values() if not gene.enabled])}, Disabled neurons: {len([gene for gene in genome.neuron_genes.values() if not gene.enabled])}")
-    
+        # Speciate the new generation
+        self.speciate()
+
     def carry_over_elites(self, next_gen_genomes):
         # Carry over the elites
         for species_instance in self.species.values():
@@ -265,9 +263,6 @@ class Population:
         if not self.species:
             raise ValueError("No species available to choose from.")
         return random.choice(list(self.species.values()))
-
-    def remove_species():
-        pass
 
     def save_genomes_to_file(self, file_path):
         print(f"Saving genomes to file: {file_path}")
