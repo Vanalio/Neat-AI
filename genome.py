@@ -168,6 +168,7 @@ class Genome:
             elif neuron_id in other_genome.neuron_genes:
                 offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy()
 
+        print(f"Created offspring genome {offspring.id} from parents {self.id} and {other_genome.id}")
         return offspring
 
     def mutate(self):
@@ -288,6 +289,7 @@ class Genome:
         new_genome.connection_genes = self.connection_genes
         new_genome.fitness = self.fitness
 
+        print(f"Created copy of genome {self.id} as genome {new_genome.id}")
         return new_genome
 
     def build_network(self):

@@ -21,10 +21,10 @@ def neat():
 
         # Save population every n generations
         if generation % config.population_save_interval == 0:
-            population.save_genomes_to_file(f"population_gen_{generation}.pkl")
+            population.save_genomes_to_file(f"saves/population_gen_{generation}.pkl")
 
     # Save final population
-    population.save_genomes_to_file("final_population.pkl")
+    population.save_genomes_to_file("saves/final_population.pkl")
 
 if __name__ == "__main__":
     neat()

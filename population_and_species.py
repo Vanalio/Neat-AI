@@ -45,9 +45,7 @@ class Population:
 
     def evolve(self):
         self.evaluate()
-        self.relu_offset_fitness()
         self.stat_and_sort()
-        self.prune()
         self.form_next_generation()
 
     def speciate(self):
@@ -84,7 +82,9 @@ class Population:
             self.evaluate_parallel()
         else:
             self.evaluate_serial()
-    
+
+        self.relu_offset_fitness()
+
     def evaluate_serial(self):
         print("Serial evaluation")
         for genome in self.genomes.values():
@@ -93,7 +93,7 @@ class Population:
     def evaluate_parallel(self):
         pass
 
-    def evaluate_single_genome(self, genome):
+    """def evaluate_single_genome(self, genome):
         # Reset environment to initial state
         observation = self.environment.reset()
         
@@ -120,7 +120,10 @@ class Population:
             observation = torch.from_numpy(observation).float()
             done = terminated or truncated
     #
-        return total_reward
+        return total_reward"""
+    
+    def evaluate_single_genome(self, genome):
+        return 1
 
     def relu_offset_fitness(self):
 
@@ -213,11 +216,15 @@ class Population:
         next_gen_genomes = {}
 
         # Carry over elites and reproduce
-        next_gen_genomes = self.carry_over_elites(next_gen_genomes)
-        next_gen_genomes = self.reproduce(next_gen_genomes)
+        elites = self.carry_over_elites(next_gen_genomes)
+        self.prune()
+        crossovers = self.reproduce(next_gen_genomes)
         
         # Reinitialize species and genomes
         self.species = {}
+        # Union the elites and crossovers
+        next_gen_genomes.update(elites)
+        next_gen_genomes.update(crossovers)
         self.genomes = next_gen_genomes
 
         for genome in self.genomes.values():
@@ -237,7 +244,7 @@ class Population:
         needed_offspring = config.population_size - len(next_gen_genomes)
         print(f"Total offspring needed: {needed_offspring} - next_gen_genomes: {len(next_gen_genomes)}")
         for species_instance in self.species.values():
-            offspring_count = self.get_offspring_count(species_instance, needed_offspring, next_gen_genomes)
+            offspring_count = self.get_offspring_count(species_instance, needed_offspring)
             offspring = species_instance.produce_offspring(offspring_count)
             next_gen_genomes.update(offspring)
 
@@ -249,7 +256,7 @@ class Population:
             #print(f"Taken random species offspring from species {species_instance.id} to the next generation...")
         return next_gen_genomes
         
-    def get_offspring_count(self, species_instance, needed_offspring, next_gen_genomes):
+    def get_offspring_count(self, species_instance, needed_offspring):
         # Calculate the rank of the given species
         rank = list(self.species.keys()).index(species_instance.id) + 1
         total_rank_sum = sum(1 / i for i in range(1, len(self.species) + 1))
@@ -300,10 +307,9 @@ class Species:
             if len(self.genomes) > 1:
                 # If there are at least two members, randomly select two different parents
                 parent1, parent2 = random.sample(list(self.genomes.values()), 2)
-                #print(f"Species {self.id} has {len(self.genomes)} members, crossing over genomes {parent1.id} and {parent2.id}...")
                 new_genome = parent1.crossover(parent2)
             elif self.genomes:
-                #print(f"Species {self.id} has only one member, copying the genome...")
+                print(f"Species {self.id} has only one member, copying the genome...")
                 # If there is only one member, use it as both parents
                 parent = next(iter(self.genomes.values()))
                 new_genome = parent.copy()
