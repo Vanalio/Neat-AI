@@ -117,8 +117,9 @@ class Population:
             
             # if genome is best genome, print input and output
             #if genome == self.best_genome:
+            if genome == genome:
                 #print(f"Observation: {observation}, Shape: {observation.shape}")
-                #print(f"Action: {action}, Shape: {action.shape}")
+                print(f"Action: {action}, Shape: {action.shape}")
 
             observation, reward, terminated, truncated, _ = self.environment.step(action)
             total_reward += reward
