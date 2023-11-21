@@ -7,7 +7,9 @@ from genome import Genome
 from neural_network import NeuralNetwork
 
 from config import Config
+
 config = Config("config.ini", "DEFAULT")
+
 
 class Population:
     def __init__(self, first=False):
@@ -33,8 +35,6 @@ class Population:
             genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
             self.genomes[genome.id] = genome
         print(f"Genomes created for first population: {len(self.genomes)}")
-        #for genome in self.genomes.values():
-            #print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}")
 
     def print_neuron_ids(self):
         print("Input Neuron IDs:", self.input_ids)
@@ -48,16 +48,13 @@ class Population:
 
     def speciate(self):
         print("Speciating population...")
-        #self.species = {}
 
-        # Function to find species for a genome
         def find_species_for_genome(genome):
             for species_instance in self.species.values():
                 if species_instance.is_same_species(genome):
                     return species_instance
             return None
 
-        # Assign genomes to species or create new species
         for genome in self.genomes.values():
             species_instance = find_species_for_genome(genome)
             if species_instance:
@@ -67,19 +64,25 @@ class Population:
                 new_species.add_genome(genome)
                 self.species[new_species.id] = new_species
 
-        # Adjust the species distance threshold based on species ratio
         species_ratio = len(self.species) / config.target_species
-        adjustment_factor = 1.0 - config.distance_adj_factor if species_ratio < 1.0 else 1.0 + config.distance_adj_factor
+        adjustment_factor = (
+            1.0 - config.distance_adj_factor
+            if species_ratio < 1.0
+            else 1.0 + config.distance_adj_factor
+        )
         config.distance_threshold *= adjustment_factor
 
-        print(f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}")
+        print(
+            f"Species count: {len(self.species)}, Adjusted distance threshold: {config.distance_threshold}"
+        )
 
     def evaluate(self):
-        # Initialize the environment
-        self.environment = gym.make("BipedalWalker-v3", hardcore=True)
-        self.environment = gym.wrappers.TimeLimit(self.environment, max_episode_steps=100)
 
-        # Reset the environment and store the initial observation
+        self.environment = gym.make("BipedalWalker-v3", hardcore=True)
+        self.environment = gym.wrappers.TimeLimit(
+            self.environment, max_episode_steps=100
+        )
+
         self.initial_observation = self.environment.reset()
 
         print("Evaluating population...")
@@ -99,73 +102,82 @@ class Population:
         pass
 
     def evaluate_single_genome(self, genome):
-        # Reset environment to initial state
+
         observation = self.environment.reset()
 
-        # Extract observation array from tuple if necessary
         if isinstance(observation, tuple):
             observation = observation[0]
 
         neural_network = NeuralNetwork(genome, self.input_ids, self.output_ids)
         neural_network.reset_hidden_states()
-        
+
         done = False
         total_reward = 0
 
         while not done:
             action = neural_network.propagate(observation)
-            
-            # if genome is best genome, print input and output
-            #if genome == self.best_genome:
-            #if genome == genome:
-                #print(f"Observation: {observation}, Shape: {observation.shape}")
-                # if the action contains any value out of range [-1, 1], print it
-                #print(f"Action: {action}, Shape: {action.shape}, Genome ID: {genome.id}")
 
-            observation, reward, terminated, truncated, _ = self.environment.step(action)
+            observation, reward, terminated, truncated, _ = self.environment.step(
+                action
+            )
             total_reward += reward
 
-            # Extract observation array from tuple if necessary
             if isinstance(observation, tuple):
                 observation = observation[0]
 
             done = terminated or truncated
 
         return total_reward
-    
-    """def evaluate_single_genome(self, genome):
-        return 1"""
 
     def relu_offset_fitness(self):
 
         for _, genome in self.genomes.items():
             genome.fitness = max(0, genome.fitness + config.fitness_offset)
-            #print(f"Genome ID: {genome.id}, Fitness: {genome.fitness}")
 
     def stat_and_sort(self):
         print("\nStats and sorting...")
-        # Calculate species fitness stats, find elites and sort genomes
+
         for _, species in self.species.items():
-            sorted_genomes = sorted(species.genomes.values(), key=lambda genome: genome.fitness, reverse=True)
+            sorted_genomes = sorted(
+                species.genomes.values(),
+                key=lambda genome: genome.fitness,
+                reverse=True,
+            )
             species.genomes = {genome.id: genome for genome in sorted_genomes}
-            species.elites = {genome.id: genome for genome in sorted_genomes[:config.elites_per_species]}
-            species.total_fitness = sum(genome.fitness for genome in species.genomes.values())
-            species.average_shared_fitness = species.total_fitness / (len(species.genomes) ** 2)
+            species.elites = {
+                genome.id: genome
+                for genome in sorted_genomes[: config.elites_per_species]
+            }
+            species.total_fitness = sum(
+                genome.fitness for genome in species.genomes.values()
+            )
+            species.average_shared_fitness = species.total_fitness / (
+                len(species.genomes) ** 2
+            )
 
         self.max_fitness = None
         self.best_genome = None
-        sorted_species = sorted(self.species.items(), key=lambda item: item[1].average_shared_fitness, reverse=True)
+        sorted_species = sorted(
+            self.species.items(),
+            key=lambda item: item[1].average_shared_fitness,
+            reverse=True,
+        )
         self.species = {species_id: species for species_id, species in sorted_species}
 
         for _, species in self.species.items():
-            print(f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}")
+            print(
+                f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}, Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
+            )
 
-        # Calculate population fitness stats
         for _, genome in self.genomes.items():
             if self.max_fitness is None or genome.fitness > self.max_fitness:
                 self.max_fitness = genome.fitness
                 self.best_genome = genome
-        print(f"Max fitness: {self.max_fitness}", "Best genome:", self.best_genome.id if self.best_genome else None)
+        print(
+            f"Max fitness: {self.max_fitness}",
+            "Best genome:",
+            self.best_genome.id if self.best_genome else None,
+        )
 
     def prune(self):
         self.prune_genomes()
@@ -177,27 +189,36 @@ class Population:
 
     def prune_genomes(self):
         print("\nPruning least fit genomes...")
-        # Prune genomes from species
+
         for species_instance in self.species.values():
-            #print(f"Discarding the least fit genomes from species {species_instance.id}...")
-            species_instance.cull(config.keep_best_genomes_in_species)  # Keep only a portion of the genomes
+
+            species_instance.cull(config.keep_best_genomes_in_species)
 
     def prune_stale_species(self):
-        # Prune stale species
+
         print("\nMass extinction of stale species...")
         max_removal_count = len(self.species) - config.min_species
         removal_count = 0
         for species_instance in self.species.values():
-            if species_instance.generations_without_improvement >= config.max_stagnation:
+            if (
+                species_instance.generations_without_improvement
+                >= config.max_stagnation
+            ):
                 if removal_count < max_removal_count:
-                # Remove stale species
-                    del self.species[species_instance.id] # FIXME: remove also dependant objects
-                    print(f"Removed stale species ID: {species_instance.id} with generations without improvement: {species_instance.generations_without_improvement}")
+
+                    del self.species[species_instance.id]
+                    print(
+                        f"Removed stale species ID: {species_instance.id} with generations without improvement: {species_instance.generations_without_improvement}"
+                    )
                     removal_count += 1
                 else:
-                    print(f"Cannot remove stale species ID: {species_instance.id}, max removal count reached")
+                    print(
+                        f"Cannot remove stale species ID: {species_instance.id}, max removal count reached"
+                    )
                     break
-        print(f"Removed {removal_count} stale species, {len(self.species)} species surviving")
+        print(
+            f"Removed {removal_count} stale species, {len(self.species)} species surviving"
+        )
 
     def prune_weak_species(self):
         print("\nMass extinction of weak species...")
@@ -205,7 +226,7 @@ class Population:
         print(f"Max removal count: {max_removal_count}")
         removal_count = 0
         if removal_count < max_removal_count:
-            # Remove weak species
+
             if not 0 < config.keep_best_species <= 1:
                 raise ValueError("config.keep_best_species must be between 0 and 1.")
             original_count = len(self.species)
@@ -213,84 +234,86 @@ class Population:
             cutoff = max(1, int(original_count * config.keep_best_species))
             print(f"Cutoff: {cutoff}")
 
-            # Gather keys of species to be removed
             keys_to_remove = list(self.species.keys())[cutoff:]
-            
-            # Delete each species
+
             for key in keys_to_remove:
                 del self.species[key]
 
             print(f"Removed weak species, new species count: {len(self.species)}")
 
     def form_next_generation(self):
-        print("\nForming next generation...")
-        next_gen_genomes = {}
+        next_gen = {}
+        next_gen_elites = {}
+        next_gen_crossovers = {}
 
-        # Carry over elites and reproduce
-        elites = self.carry_over_elites(next_gen_genomes)
+        next_gen_elites = self.carry_over_elites(next_gen_elites)
+
         self.prune()
-        crossovers = self.reproduce(next_gen_genomes)
-        
-        # Reinitialize species and genomes
-        #self.species = {}
-        
-        # Union the elites and crossovers
-        next_gen_genomes.update(elites)
-        next_gen_genomes.update(crossovers)
-        self.genomes = next_gen_genomes
 
-        #for genome in self.genomes.values():
-            #print(f"Genome ID: {genome.id}, Neurons: {len(genome.neuron_genes)}, Connections: {len(genome.connection_genes)}, Fitness: {genome.fitness}, Disabled connections: {len([gene for gene in genome.connection_genes.values() if not gene.enabled])}, Disabled neurons: {len([gene for gene in genome.neuron_genes.values() if not gene.enabled])}")
-        
-        # Speciate the new generation
-        self.speciate()
+        next_gen_crossovers = self.reproduce(next_gen_elites, next_gen_crossovers)
 
-        # Increase age of species
+        self.genomes = {}
+        next_gen.update(next_gen_elites)
         for species_instance in self.species.values():
             species_instance.age += 1
+        self.speciate()
 
-        # Print all info on best genome
-        print(f"Best genome ID: {self.best_genome.id}, Fitness: {self.best_genome.fitness}, Neurons: {len(self.best_genome.neuron_genes)}, Connections: {len(self.best_genome.connection_genes)}, Disabled connections: {len([gene for gene in self.best_genome.connection_genes.values() if not gene.enabled])}, Disabled neurons: {len([gene for gene in self.best_genome.neuron_genes.values() if not gene.enabled])}")
+        print(
+            f"Best genome ID: {self.best_genome.id}, Fitness: {self.best_genome.fitness}, Neurons: {len(self.best_genome.neuron_genes)}, Connections: {len(self.best_genome.connection_genes)}, Disabled connections: {len([gene for gene in self.best_genome.connection_genes.values() if not gene.enabled])}, Disabled neurons: {len([gene for gene in self.best_genome.neuron_genes.values() if not gene.enabled])}"
+        )
 
-    def carry_over_elites(self, next_gen_genomes):
-        # set all elites as representatives of their current species
-        #for species_instance in self.species.values():
-            #species_instance.representative = species_instance.elites[next(iter(species_instance.elites))]
-
-        # Carry over the elites
+    def carry_over_elites(self, next_gen_elites):
         for species_instance in self.species.values():
-            print(f"Taking species {species_instance.id} elites to the next generation...")
-            next_gen_genomes.update(species_instance.elites)
-        return next_gen_genomes
-    
-    def reproduce(self, next_gen_genomes):
-        # Calculate total offspring needed
-        needed_offspring = config.population_size - len(next_gen_genomes)
-        #print(f"Total offspring needed: {needed_offspring} - next_gen_genomes: {len(next_gen_genomes)}")
+
+            print(f"members in next generation: {len(next_gen_elites)}")
+            print(
+                f"Taking species {species_instance.id} elites to the next generation..."
+            )
+            print(f"Elites: {len(species_instance.elites)}")
+            next_gen_elites.update(species_instance.elites)
+
+            print(f"members in next generation after elite add: {len(next_gen_elites)}")
+
+        return next_gen_elites
+
+    def reproduce(self, next_gen_elites, next_gen_crossovers):
+
+        needed_offspring = config.population_size - len(next_gen_elites)
+        print(
+            f"Total offspring needed: {needed_offspring} - next_gen_elites: {len(next_gen_elites)}"
+        )
         for species_instance in self.species.values():
-            offspring_count = self.get_offspring_count(species_instance, needed_offspring)
+            offspring_count = self.get_offspring_count(
+                species_instance, needed_offspring
+            )
+            print(f"Offspring count: {offspring_count}")
             offspring = species_instance.produce_offspring(offspring_count)
-            next_gen_genomes.update(offspring)
+            print(f"Offspring produced: {len(offspring)}")
+            next_gen_crossovers.update(offspring)
 
-        # Ensure population size is maintained adding random species offspring
-        while len(next_gen_genomes) < config.population_size:
-            #print(f"Adding random species offspring to maintain population size...")
-            #print(f"next_gen_genomes: {len(next_gen_genomes)}")
-            next_gen_genomes.update(self.random_species().produce_offspring(1))
-            #print(f"Taken random species offspring from species {species_instance.id} to the next generation...")
-        return next_gen_genomes
-        
+        print(f"inside reproduction, next_gen_crossovers: {len(next_gen_crossovers)}")
+        print(f"inside reproduction next_gen_crossovers: {next_gen_crossovers}")
+
+        while len(next_gen_crossovers) + len(next_gen_elites) < config.population_size:
+            print(f"Adding random species offspring to maintain population size...")
+            next_gen_crossovers.update(self.random_species().produce_offspring(1))
+            print(
+                f"Taken random species offspring from species {species_instance.id} to the next generation..."
+            )
+
+        return next_gen_crossovers
+
     def get_offspring_count(self, species_instance, needed_offspring):
-        # Calculate the rank of the given species
+
         rank = list(self.species.keys()).index(species_instance.id) + 1
         total_rank_sum = sum(1 / i for i in range(1, len(self.species) + 1))
-        # Calculate the offspring count for the given species
+
         offspring_count = int((needed_offspring * (1 / rank)) / total_rank_sum)
 
         return offspring_count
 
     def random_species(self):
-        #print("Getting random species...")
+
         if not self.species:
             raise ValueError("No species available to choose from.")
         return random.choice(list(self.species.values()))
@@ -304,6 +327,7 @@ class Population:
         print(f"Loading genomes from file: {file_path}")
         with open(file_path, "rb") as file:
             self.genomes = pickle.load(file)
+
 
 class Species:
     def __init__(self):
@@ -321,30 +345,30 @@ class Species:
         original_count = len(self.genomes)
         cutoff = max(1, int(original_count * keep_best_genomes_in_species))
         self.genomes = dict(list(self.genomes.items())[:cutoff])
-        print(f"Culled a total of {original_count - cutoff} genomes from species {self.id}, {len(self.genomes)} genomes remaining")
-        # FIXME: order genomes, remove also dependant objects
+        print(
+            f"Culled a total of {original_count - cutoff} genomes from species {self.id}, {len(self.genomes)} genomes remaining"
+        )
 
     def produce_offspring(self, offspring_count=1):
-        #print(f"\nProducing {offspring_count} offspring(s) for species {self.id}...")
+
         offspring = {}
         for _ in range(offspring_count):
             if len(self.genomes) > 1:
-                # If there are at least two members, randomly select two different parents
+
                 parent1, parent2 = random.sample(list(self.genomes.values()), 2)
                 new_genome = parent1.crossover(parent2)
             elif self.genomes:
-                #print(f"Species {self.id} has only one member, copying the genome...")
-                # If there is only one member, use it as both parents
+
                 parent = next(iter(self.genomes.values()))
                 new_genome = parent.copy()
             else:
-                # If there are no members in the species, skip this iteration
+
                 print(f"No members in species {self.id} to produce offspring")
                 continue
 
             new_genome.mutate()
             offspring[new_genome.id] = new_genome
-        #print(f"Produced {len(offspring)} offspring(s) for species {self.id}")
+
         return offspring
 
     def random_genome(self):
@@ -356,7 +380,7 @@ class Species:
 
     def is_same_species(self, genome):
         distance = genome.calculate_genetic_distance(self.representative)
-        #print(f"Config distance threshold: {config.distance_threshold}, Distance: {distance}")
+
         return distance < config.distance_threshold
 
     def add_genome(self, genome):

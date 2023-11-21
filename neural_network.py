@@ -12,9 +12,7 @@ class NeuralNetwork:
         self.neurons = {}
         self.connections = {}
         self.hidden_indices = {}
-        self.input_indices = {
-            neuron_id: idx for idx, neuron_id in enumerate(input_ids)
-        }
+        self.input_indices = {neuron_id: idx for idx, neuron_id in enumerate(input_ids)}
         self.output_indices = {
             neuron_id: idx for idx, neuron_id in enumerate(output_ids)
         }
@@ -61,7 +59,6 @@ class NeuralNetwork:
 
     def propagate(self, input_values):
         input_tensor = torch.from_numpy(input_values).float()
-        #print("Input tensor:", input_tensor)
 
         output_tensor = torch.zeros(len(self.output_indices))
 
@@ -81,8 +78,12 @@ class NeuralNetwork:
 
             if activation_input is not None:
                 target_neuron = self.neurons[to_neuron]
-                activation_func = getattr(activation_functions, target_neuron.activation)
-                activation_output = activation_func(activation_input + target_neuron.bias)
+                activation_func = getattr(
+                    activation_functions, target_neuron.activation
+                )
+                activation_output = activation_func(
+                    activation_input + target_neuron.bias
+                )
 
                 if to_neuron in self.hidden_indices:
                     hidden_index = self.hidden_indices[to_neuron]
@@ -95,11 +96,15 @@ class NeuralNetwork:
 
         for neuron_id, accumulated_input in output_accumulation.items():
             output_neuron = self.neurons[neuron_id]
-            output_activation_func = getattr(activation_functions, output_neuron.activation)
-            accumulated_input_tensor = torch.tensor([accumulated_input], dtype=torch.float32)
-            output_tensor[self.output_indices[neuron_id]] = output_activation_func(accumulated_input_tensor)
-
-        #print("Output tensor:", output_tensor)
+            output_activation_func = getattr(
+                activation_functions, output_neuron.activation
+            )
+            accumulated_input_tensor = torch.tensor(
+                [accumulated_input], dtype=torch.float32
+            )
+            output_tensor[self.output_indices[neuron_id]] = output_activation_func(
+                accumulated_input_tensor
+            )
 
         output_array = output_tensor.detach().numpy()
         return output_array

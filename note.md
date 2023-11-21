@@ -33,7 +33,7 @@ input sequence
 first timestep [1, 2, 3, 4]
 second timestep [5, 6, 7 ,8]
 
-all input neurons no activation no bias
+all input neurons have no activation and no bias
 
 all hidden neuron activation: relu clipped at 1
 all hidden neuron bias: 10

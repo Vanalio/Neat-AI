@@ -1,6 +1,3 @@
-# Classes for managing ids and innovation numbers
-
-
 class IdManager:
     _instance = None
 

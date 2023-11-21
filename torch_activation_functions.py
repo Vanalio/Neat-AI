@@ -1,25 +1,10 @@
-# Activation functions used in the neural network
-
-
 import torch
 
 
 class ActivationFunctions:
     @staticmethod
     def get_activation_functions():
-        return [
-            #"identity",
-            #"abs",
-            #"softplus",
-            #"relu",
-            #"leaky_relu",
-            "clipped_relu",
-            #"sigmoid",
-            "brain_sigmoid",
-            "softsign"
-            #"tanh",
-            #"arctan"
-        ]
+        return ["clipped_relu", "brain_sigmoid", "softsign"]
 
     @staticmethod
     def identity(x):

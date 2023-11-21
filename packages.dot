@@ -1,0 +1,29 @@
+digraph "packages" {
+rankdir=BT
+charset="utf-8"
+"AI" [color="black", label=<AI>, shape="box", style="solid"];
+"AI.config" [color="black", label=<AI.config>, shape="box", style="solid"];
+"AI.genes" [color="black", label=<AI.genes>, shape="box", style="solid"];
+"AI.genome" [color="black", label=<AI.genome>, shape="box", style="solid"];
+"AI.managers" [color="black", label=<AI.managers>, shape="box", style="solid"];
+"AI.neat" [color="black", label=<AI.neat>, shape="box", style="solid"];
+"AI.neural_network" [color="black", label=<AI.neural_network>, shape="box", style="solid"];
+"AI.population_and_species" [color="black", label=<AI.population_and_species>, shape="box", style="solid"];
+"AI.torch_activation_functions" [color="black", label=<AI.torch_activation_functions>, shape="box", style="solid"];
+"AI.visualization" [color="black", label=<AI.visualization>, shape="box", style="solid"];
+"AI.genes" -> "AI.config" [arrowhead="open", arrowtail="none"];
+"AI.genes" -> "AI.managers" [arrowhead="open", arrowtail="none"];
+"AI.genome" -> "AI.config" [arrowhead="open", arrowtail="none"];
+"AI.genome" -> "AI.genes" [arrowhead="open", arrowtail="none"];
+"AI.genome" -> "AI.managers" [arrowhead="open", arrowtail="none"];
+"AI.genome" -> "AI.neural_network" [arrowhead="open", arrowtail="none"];
+"AI.genome" -> "AI.torch_activation_functions" [arrowhead="open", arrowtail="none"];
+"AI.neat" -> "AI.config" [arrowhead="open", arrowtail="none"];
+"AI.neat" -> "AI.population_and_species" [arrowhead="open", arrowtail="none"];
+"AI.neural_network" -> "AI.config" [arrowhead="open", arrowtail="none"];
+"AI.neural_network" -> "AI.torch_activation_functions" [arrowhead="open", arrowtail="none"];
+"AI.population_and_species" -> "AI.config" [arrowhead="open", arrowtail="none"];
+"AI.population_and_species" -> "AI.genome" [arrowhead="open", arrowtail="none"];
+"AI.population_and_species" -> "AI.managers" [arrowhead="open", arrowtail="none"];
+"AI.population_and_species" -> "AI.neural_network" [arrowhead="open", arrowtail="none"];
+}

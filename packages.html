@@ -1,0 +1,45 @@
+<html>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <div class="mermaid">
+    
+        classDiagram
+          class AI {
+          }
+          class config {
+          }
+          class genes {
+          }
+          class genome {
+          }
+          class managers {
+          }
+          class neat {
+          }
+          class neural_network {
+          }
+          class population_and_species {
+          }
+          class torch_activation_functions {
+          }
+          class visualization {
+          }
+          genes --> config
+          genes --> managers
+          genome --> config
+          genome --> genes
+          genome --> managers
+          genome --> neural_network
+          genome --> torch_activation_functions
+          neat --> config
+          neat --> population_and_species
+          neural_network --> config
+          neural_network --> torch_activation_functions
+          population_and_species --> config
+          population_and_species --> genome
+          population_and_species --> managers
+          population_and_species --> neural_network
+  
+       </div>
+  </body>
+</html>
