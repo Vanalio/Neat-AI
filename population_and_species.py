@@ -291,9 +291,6 @@ class Population:
             print(f"Offspring produced: {len(offspring)}")
             next_gen_crossovers.update(offspring)
 
-        print(f"inside reproduction, next_gen_crossovers: {len(next_gen_crossovers)}")
-        print(f"inside reproduction next_gen_crossovers: {next_gen_crossovers}")
-
         while len(next_gen_crossovers) + len(next_gen_elites) < config.population_size:
             print(f"Adding random species offspring to maintain population size...")
             next_gen_crossovers.update(self.random_species().produce_offspring(1))

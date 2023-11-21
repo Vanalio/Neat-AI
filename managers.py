@@ -24,7 +24,7 @@ class InnovationManager:
         return cls._instance
 
     @staticmethod
-    def get_new_innovation_number():
+    def get_new_innovation():
         instance = InnovationManager()
         instance.current_innovation += 1
         return instance.current_innovation

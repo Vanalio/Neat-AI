@@ -33,7 +33,7 @@ class NeuronGene:
 class ConnectionGene:
     def __init__(self, from_neuron, to_neuron, connection_id=None):
         self.id = connection_id if connection_id is not None else IdManager.get_new_id()
-        self.innovation_number = InnovationManager.get_new_innovation_number()
+        self.innovation_number = InnovationManager.get_new_innovation()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
         self.weight = random.uniform(*config.weight_init_range)
@@ -46,7 +46,7 @@ class ConnectionGene:
         new_gene.innovation_number = (
             self.innovation_number
             if retain_innovation_number
-            else InnovationManager.get_new_innovation_number()
+            else InnovationManager.get_new_innovation()
         )
 
         return new_gene

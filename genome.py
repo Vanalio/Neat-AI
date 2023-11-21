@@ -1,5 +1,4 @@
 import random
-from neural_network import NeuralNetwork
 
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
@@ -412,14 +411,6 @@ class Genome:
         new_genome.fitness = self.fitness
 
         return new_genome
-
-    """def build_network(self):
-        print(f"Building network for genome {self.id}...")
-        if self.network_needs_rebuild:
-            self.network = NeuralNetwork(self)
-            self.network_needs_rebuild = False
-
-        return self.network"""
 
     def calculate_genetic_distance(self, other_genome):
 
