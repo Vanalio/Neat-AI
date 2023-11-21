@@ -8,14 +8,17 @@ class ActivationFunctions:
     @staticmethod
     def get_activation_functions():
         return [
-            "identity",
-            "relu",
+            #"identity",
+            #"abs",
+            #"softplus",
+            #"relu",
             #"leaky_relu",
             "clipped_relu",
+            "sigmoid",
+            "brain_sigmoid",
+            "softsign",
             "tanh",
-            #"sigmoid",
-            #"softplus",
-            #"abs",
+            "arctan"
         ]
 
     @staticmethod
@@ -49,3 +52,15 @@ class ActivationFunctions:
     @staticmethod
     def abs(x):
         return torch.abs(x)
+
+    @staticmethod
+    def brain_sigmoid(x):
+        return torch.where(x >= 0, 2 * torch.sigmoid(x) - 1, torch.zeros_like(x))
+
+    @staticmethod
+    def softsign(x):
+        return x / (1 + torch.abs(x))
+
+    @staticmethod
+    def arctan(x):
+        return torch.atan(x)
