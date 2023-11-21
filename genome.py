@@ -14,6 +14,7 @@ class Genome:
         self.neuron_genes = {}
         self.connection_genes = {}
         self.fitness = None
+        self.species_id = None
         self.network = None
         self.network_needs_rebuild = True
 
@@ -300,13 +301,13 @@ class Genome:
         #print(f"Created copy of genome {self.id} as genome {new_genome.id}")
         return new_genome
 
-    def build_network(self):
+    """def build_network(self):
         print(f"Building network for genome {self.id}...")
         if self.network_needs_rebuild:
             self.network = NeuralNetwork(self)
             self.network_needs_rebuild = False
         #print(f"Network built for genome {self.id}")
-        return self.network
+        return self.network"""
 
     def calculate_genetic_distance(self, other_genome):
         # Mapping innovation numbers to connection genes

@@ -1,6 +1,5 @@
 import random
 import pickle
-import torch
 import gymnasium as gym
 
 from managers import IdManager
@@ -49,7 +48,7 @@ class Population:
 
     def speciate(self):
         print("Speciating population...")
-        self.species = {}
+        #self.species = {}
 
         # Function to find species for a genome
         def find_species_for_genome(genome):
@@ -116,7 +115,10 @@ class Population:
         while not done:
             action = neural_network.propagate(observation)
             
-            #print(f"Action: {action}, Shape: {action.shape}")
+            # if genome is best genome, print input and output
+            #if genome == self.best_genome:
+                #print(f"Observation: {observation}, Shape: {observation.shape}")
+                #print(f"Action: {action}, Shape: {action.shape}")
 
             observation, reward, terminated, truncated, _ = self.environment.step(action)
             total_reward += reward
@@ -228,7 +230,8 @@ class Population:
         crossovers = self.reproduce(next_gen_genomes)
         
         # Reinitialize species and genomes
-        self.species = {}
+        #self.species = {}
+        
         # Union the elites and crossovers
         next_gen_genomes.update(elites)
         next_gen_genomes.update(crossovers)
@@ -248,6 +251,10 @@ class Population:
         print(f"Best genome ID: {self.best_genome.id}, Fitness: {self.best_genome.fitness}, Neurons: {len(self.best_genome.neuron_genes)}, Connections: {len(self.best_genome.connection_genes)}, Disabled connections: {len([gene for gene in self.best_genome.connection_genes.values() if not gene.enabled])}, Disabled neurons: {len([gene for gene in self.best_genome.neuron_genes.values() if not gene.enabled])}")
 
     def carry_over_elites(self, next_gen_genomes):
+        # set all elites as representatives of their current species
+        #for species_instance in self.species.values():
+            #species_instance.representative = species_instance.elites[next(iter(species_instance.elites))]
+
         # Carry over the elites
         for species_instance in self.species.values():
             print(f"Taking species {species_instance.id} elites to the next generation...")
@@ -347,9 +354,11 @@ class Species:
 
     def is_same_species(self, genome):
         distance = genome.calculate_genetic_distance(self.representative)
+        #print(f"Config distance threshold: {config.distance_threshold}, Distance: {distance}")
         return distance < config.distance_threshold
 
     def add_genome(self, genome):
         self.genomes[genome.id] = genome
+        genome.species_id = self.id
         if not self.representative:
             self.representative = genome
