@@ -61,15 +61,12 @@ class NeuralNetwork:
 
     def propagate(self, input_values):
         input_tensor = torch.from_numpy(input_values).float()
-        print("Input tensor:", input_tensor)
+        #print("Input tensor:", input_tensor)
 
         output_tensor = torch.zeros(len(self.output_indices))
 
         new_hidden_states = self.hidden_states.clone()
         output_accumulation = {neuron_id: 0.0 for neuron_id in self.output_indices}
-
-        # Initialize a dictionary to monitor hidden neurons
-        hidden_neurons_debug = {idx: [] for idx in self.hidden_indices.values()}
 
         for (from_neuron, to_neuron), conn in self.connections.items():
             activation_input = None
@@ -90,15 +87,9 @@ class NeuralNetwork:
                 if to_neuron in self.hidden_indices:
                     hidden_index = self.hidden_indices[to_neuron]
                     new_hidden_states[hidden_index] += activation_output
-                    # Store debug information for each hidden neuron
-                    hidden_neurons_debug[hidden_index].append((from_neuron, activation_output.item()))
 
                 elif to_neuron in self.output_indices:
                     output_accumulation[to_neuron] += activation_output.item()
-
-        # Print the accumulation debug information for hidden neurons
-        #for neuron_idx, accumulations in hidden_neurons_debug.items():
-            #print(f"Neuron {neuron_idx} Accumulation Debug:", accumulations)
 
         self.hidden_states = new_hidden_states * config.refractory_factor
 

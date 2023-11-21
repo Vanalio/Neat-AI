@@ -11,13 +11,13 @@ class NeuronGene:
         self.layer = layer
         if layer == "output":
             self.activation = config.default_output_activation
-            self.bias = random.uniform(*config.bias_init_range)
+            self.bias = 0
         elif layer == "hidden":
             self.activation = config.default_hidden_activation
             self.bias = random.uniform(*config.bias_init_range)
         else:
-            self.activation = "identity"
-            self.bias = 0
+            self.activation = None
+            self.bias = None
         self.enabled = True
 
     def copy(self):

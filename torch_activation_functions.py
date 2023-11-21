@@ -14,11 +14,11 @@ class ActivationFunctions:
             #"relu",
             #"leaky_relu",
             "clipped_relu",
-            "sigmoid",
+            #"sigmoid",
             "brain_sigmoid",
-            "softsign",
-            "tanh",
-            "arctan"
+            "softsign"
+            #"tanh",
+            #"arctan"
         ]
 
     @staticmethod
