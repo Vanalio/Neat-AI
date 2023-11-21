@@ -97,8 +97,8 @@ class NeuralNetwork:
                     output_accumulation[to_neuron] += activation_output.item()
 
         # Print the accumulation debug information for hidden neurons
-        for neuron_idx, accumulations in hidden_neurons_debug.items():
-            print(f"Neuron {neuron_idx} Accumulation Debug:", accumulations)
+        #for neuron_idx, accumulations in hidden_neurons_debug.items():
+            #print(f"Neuron {neuron_idx} Accumulation Debug:", accumulations)
 
         self.hidden_states = new_hidden_states * config.refractory_factor
 
@@ -108,7 +108,7 @@ class NeuralNetwork:
             accumulated_input_tensor = torch.tensor([accumulated_input], dtype=torch.float32)
             output_tensor[self.output_indices[neuron_id]] = output_activation_func(accumulated_input_tensor)
 
-        print("Output tensor:", output_tensor)
+        #print("Output tensor:", output_tensor)
 
         output_array = output_tensor.detach().numpy()
         return output_array
