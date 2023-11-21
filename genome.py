@@ -4,8 +4,8 @@ from neural_network import NeuralNetwork
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
 from genes import ConnectionGene, NeuronGene
-from config import Config
 
+from config import Config
 config = Config("config.ini", "DEFAULT")
 
 class Genome:
@@ -168,7 +168,7 @@ class Genome:
             elif neuron_id in other_genome.neuron_genes:
                 offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy()
 
-        print(f"Created offspring genome {offspring.id} from parents {self.id} and {other_genome.id}")
+        #print(f"Created offspring genome {offspring.id} from parents {self.id} and {other_genome.id}")
         return offspring
 
     def mutate(self):
@@ -196,12 +196,20 @@ class Genome:
         self.network_needs_rebuild = True
 
     def mutate_add_connection(self):
-            connection_attempts = [
-                lambda: self.attempt_connections(from_layer="input", to_layer="hidden", attempts=1),
-                lambda: self.attempt_connections(from_layer="hidden", to_layer="hidden", attempts=1),
-                lambda: self.attempt_connections(from_layer="hidden", to_layer="output", attempts=1)
-            ]
-            random.choice(connection_attempts)()
+        # max possible connections = self.number_of_hidden * (self.number_of_input + self.number_of_hidden + self.number_of_output)
+        max_possible_conn = len([neuron for neuron in self.neuron_genes.values() if neuron.layer == "hidden" and neuron.enabled]) * \
+                            (len([neuron for neuron in self.neuron_genes.values() if neuron.layer == "input" and neuron.enabled]) + \
+                            len([neuron for neuron in self.neuron_genes.values() if neuron.layer == "hidden" and neuron.enabled]) + \
+                            len([neuron for neuron in self.neuron_genes.values() if neuron.layer == "output" and neuron.enabled]))
+        
+        attempts = min(config.initial_conn_attempts, max_possible_conn * config.attempts_to_max_factor)
+        
+        connection_attempts = [
+                lambda: self.attempt_connections(from_layer="input", to_layer="hidden", attempts=attempts),
+                lambda: self.attempt_connections(from_layer="hidden", to_layer="hidden", attempts=attempts),
+                lambda: self.attempt_connections(from_layer="hidden", to_layer="output", attempts=attempts)
+                ]
+        random.choice(connection_attempts)()
 
     def mutate_add_neuron(self):
         # Ensure there are enabled connection genes to split
@@ -289,7 +297,7 @@ class Genome:
         new_genome.connection_genes = self.connection_genes
         new_genome.fitness = self.fitness
 
-        print(f"Created copy of genome {self.id} as genome {new_genome.id}")
+        #print(f"Created copy of genome {self.id} as genome {new_genome.id}")
         return new_genome
 
     def build_network(self):
