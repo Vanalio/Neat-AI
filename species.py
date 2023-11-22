@@ -1,7 +1,6 @@
 import random
 
 from managers import IdManager
-from genome import Genome
 
 class Species:
     def __init__(self):
@@ -21,39 +20,16 @@ class Species:
         self.genomes = dict(list(self.genomes.items())[:cutoff])
 
     def produce_offspring(self, offspring_count=1):
+        genome_list = list(self.genomes.values())  # Convert dictionary values to a list
+        total_genomes = len(genome_list)
+        weights = [total_genomes - rank for rank in range(total_genomes)]
 
         offspring = {}
+
         for _ in range(offspring_count):
-            if len(self.genomes) > 1:
-
-                # Assume "genomes" is a list of all genomes in the species, sorted by rank
-                rank_sum = sum(range(len(self.genomes)))
-                pick = random.uniform(0, rank_sum)
-                current = 0
-                for i, genome in enumerate(self.genomes):
-                    current += i
-                    if current > pick:
-                        parent1 = genome
-                        break
-
-                pick = random.uniform(0, rank_sum)
-                current = 0
-                for i, genome in enumerate(self.genomes):
-                    current += i
-                    if current > pick:
-                        parent2 = genome
-                        break
-
-                new_genome = parent1.crossover(parent2)
-
-            elif self.genomes:
-
-                parent = next(iter(self.genomes.values()))
-                new_genome = parent.copy()
-
-            else:
-                continue
-
+            # Select two parent genomes based on rank from the list
+            parent1, parent2 = random.choices(genome_list, weights=weights, k=2)
+            new_genome = parent1.crossover(parent2)
             new_genome.mutate()
             offspring[new_genome.id] = new_genome
 

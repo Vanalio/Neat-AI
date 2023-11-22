@@ -9,6 +9,7 @@ config = Config("config.ini", "DEFAULT")
 
 class NeuralNetwork:
     def __init__(self, genome, input_ids, output_ids):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.neurons = {}
         self.connections = {}
         self.hidden_indices = {}
@@ -45,7 +46,7 @@ class NeuralNetwork:
             ):
                 self.neurons[neuron_id] = genome.neuron_genes[neuron_id]
 
-        self.hidden_states = torch.zeros(len(hidden_neurons))
+        self.hidden_states = torch.zeros(len(hidden_neurons), device=self.device)
 
         for conn in genome.connection_genes.values():
 
@@ -58,9 +59,9 @@ class NeuralNetwork:
                 self.connections[(conn.from_neuron, conn.to_neuron)] = conn
 
     def propagate(self, input_values):
-        input_tensor = torch.from_numpy(input_values).float()
+        input_tensor = torch.from_numpy(input_values).float().to(self.device)
 
-        output_tensor = torch.zeros(len(self.output_indices))
+        output_tensor = torch.zeros(len(self.output_indices), device=self.device)
 
         new_hidden_states = self.hidden_states.clone()
         output_accumulation = {neuron_id: 0.0 for neuron_id in self.output_indices}

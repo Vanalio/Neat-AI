@@ -2,13 +2,12 @@
 
 ## FIXME
 
-parent selection must be based on chance proportional to rank of genome within the species, not chance proportional to its fitness
 distance!
 
 ## ADD
 
 randomize activation function at creation or mutate_add_neuron with random.choice(ActivationFunctions.get_activation_functions())
-implement update of age and generations without improvement
+implement generations without improvement
 implement interspecies mating
 implement parallel evaluation
 ignore # in the config file
@@ -17,8 +16,7 @@ ignore # in the config file
 
 check if the network is built correctly and the computation is correct
 disabled genes are correctly inherited
-removals should remove something more than just what they remove (dependencies?)
-purge redundant methods
+mutate add connections, attempts, max tries, etc
 
 ## ChatGPT
 
@@ -31,14 +29,16 @@ hidden neurons 7, 8, and 9
 output neurons 5 and 6
 
 input sequence
-first timestep [1, 2, 3, 4]
-second timestep [5, 6, 7 ,8]
+1st timestep [1, -2, 3, -4]
+2nd timestep [-5, 6, -7, 8]
+3rd timestep [-1, 2, -3, 4]
+4th timestep [1, -2, 3, -4]
+5th timestep [-5, 6, -7, 8]
+6th timestep [-1, 2, -3, 4]
 
 all input neurons have no activation and no bias
-
 all hidden neuron activation: relu clipped at 1
 all hidden neuron bias: 10
-
 all output neuron activation: softsign
 all output neuron bias: 0
 
@@ -51,12 +51,12 @@ connections (all weights 1.5)
 9 to 7 and 6
 8 to 7, 8 and 6
 
-as you can see the hidden layer presents recurrence, with bidirectional connections, self connections and loops.
+as you can see the hidden layer presents recurrence, with a) bidirectional connections, b) self connections and c) loops.
 
-write the python code that will:
+write the python code that considering loops, self connections and bidirectional connections will give the network output at each timestep
 
-give network output at each timestep
-considering loops, self connections, bidirectional connections
-you need to somehow manage the rnn using state saving
+you need to somehow manage the rnn using state saving.
 
-describe the flow of the data moving among each neuron so that its clear how the data moves from input to output across the network.
+use the best approach in terms of speed and memory footprint. we have access to gpus if needed.
+
+the code must be VERY short and still completely functional!!!

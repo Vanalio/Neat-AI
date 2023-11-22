@@ -66,7 +66,6 @@ class Population:
             species_instance.genomes = {}
             species_instance.elites = {}
 
-        print("Starting speciation...")
         for genome in self.genomes.values():
             species_instance = find_species_for_genome(genome)
             if species_instance:
@@ -75,7 +74,6 @@ class Population:
                 new_species = Species()
                 new_species.add_genome(genome)
                 self.species[new_species.id] = new_species
-        print("gone through all genomes")
 
         print("Number of species:", len(self.species))
         species_ratio = len(self.species) / config.target_species
@@ -200,6 +198,7 @@ class Population:
             species.total_fitness = sum(
                 genome.fitness for genome in species.genomes.values()
             )
+            print (f"{len(species.genomes)} genomes in species {species.id}") 
             species.average_shared_fitness = species.total_fitness / (
                 len(species.genomes) ** 2
             )
