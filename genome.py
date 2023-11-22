@@ -465,10 +465,6 @@ class Genome:
             activation_diff /= matching_genes
 
         N = max(len(inno_to_conn_gene1), len(inno_to_conn_gene2))
-        distance = (
-            (config.disjoint_coefficient * disjoint_genes)
-            + (config.excess_coefficient * excess_genes)
-            + (config.activation_diff_coefficient * activation_diff)
-        ) / N + (config.weight_diff_coefficient * weight_diff)
+        distance = ((config.disjoint_coefficient * disjoint_genes) + (config.excess_coefficient * excess_genes)) / N + (config.activation_diff_coefficient * activation_diff) + (config.weight_diff_coefficient * weight_diff)
 
         return distance

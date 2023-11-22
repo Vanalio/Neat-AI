@@ -4,6 +4,7 @@
 
 elite transfer must go before weak extinction
 parent selection must be based on chance proportional to rank of genome within the species, not chance proportional to its fitness
+distance!
 
 ## ADD
 
@@ -11,6 +12,7 @@ randomize activation function at creation or mutate_add_neuron with random.choic
 implement update of age and generations without improvement
 implement interspecies mating
 implement parallel evaluation
+ignore # in the config file
 
 ## CHECK
 

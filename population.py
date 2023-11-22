@@ -87,11 +87,15 @@ class Population:
         )
 
         self.initial_observation = self.environment.reset()
-
-        if config.parallelize:
+        print("Config mode:", config.mode)
+        if config.mode == "parallel":
             self.evaluate_parallel()
-        else:
+        elif config.mode == "serial":
             self.evaluate_serial()
+        elif config.mode == "dumb":
+            self.evaluate_dumb()
+        else:
+            raise ValueError("No valid evaluation method specified.")
 
         self.relu_offset_fitness()
 
@@ -99,6 +103,11 @@ class Population:
 
         for genome in self.genomes.values():
             genome.fitness = self.evaluate_single_genome(genome)
+
+    def evaluate_dumb(self):
+            
+        for genome in self.genomes.values():
+            genome.fitness = 1
 
     def evaluate_parallel(self):
         pass
@@ -179,6 +188,8 @@ class Population:
                 f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}", \
                 f"Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
             )
+        # count current number of species
+        print(f"Number of species: {len(self.species)}, distance threshold: {config.distance_threshold}")
         print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}")
 
     def prune(self):
