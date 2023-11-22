@@ -2,7 +2,6 @@
 
 ## FIXME
 
-elite transfer must go before weak extinction
 parent selection must be based on chance proportional to rank of genome within the species, not chance proportional to its fitness
 distance!
 

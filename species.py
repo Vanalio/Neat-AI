@@ -3,10 +3,6 @@ import random
 from managers import IdManager
 from genome import Genome
 
-from config import Config
-
-config = Config("config.ini", "DEFAULT")
-
 class Species:
     def __init__(self):
         self.id = IdManager.get_new_id()
@@ -30,12 +26,31 @@ class Species:
         for _ in range(offspring_count):
             if len(self.genomes) > 1:
 
-                parent1, parent2 = random.sample(list(self.genomes.values()), 2)
+                # Assume "genomes" is a list of all genomes in the species, sorted by rank
+                rank_sum = sum(range(len(self.genomes)))
+                pick = random.uniform(0, rank_sum)
+                current = 0
+                for i, genome in enumerate(self.genomes):
+                    current += i
+                    if current > pick:
+                        parent1 = genome
+                        break
+
+                pick = random.uniform(0, rank_sum)
+                current = 0
+                for i, genome in enumerate(self.genomes):
+                    current += i
+                    if current > pick:
+                        parent2 = genome
+                        break
+
                 new_genome = parent1.crossover(parent2)
+
             elif self.genomes:
 
                 parent = next(iter(self.genomes.values()))
                 new_genome = parent.copy()
+
             else:
                 continue
 
@@ -50,10 +65,14 @@ class Species:
         random_genome = random.choice(list(self.genomes.values()))
         return random_genome.copy()
 
-    def is_same_species(self, genome):
-        distance = genome.calculate_genetic_distance(self.representative)
+    def is_same_species(self, genome, distance_threshold):
+        # check if representative is set, raise error if not
+        if not self.representative:
+            raise ValueError("Species has no representative, this should not happen.")
 
-        return distance < config.distance_threshold
+        distance = genome.calculate_genetic_distance(self.representative)
+        
+        return distance <= distance_threshold
 
     def add_genome(self, genome):
         self.genomes[genome.id] = genome

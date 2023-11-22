@@ -467,4 +467,8 @@ class Genome:
         N = max(len(inno_to_conn_gene1), len(inno_to_conn_gene2))
         distance = ((config.disjoint_coefficient * disjoint_genes) + (config.excess_coefficient * excess_genes)) / N + (config.activation_diff_coefficient * activation_diff) + (config.weight_diff_coefficient * weight_diff)
 
+        #print(
+            #f"Genetic distance between genome {self.id} and genome {other_genome.id} is {distance}"
+        #)
+
         return distance

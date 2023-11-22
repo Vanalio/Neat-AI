@@ -21,9 +21,9 @@ class Population:
         self.environment = None
         if first:
             self._initialize_neuron_ids()
-            self._first_population()
             self.print_neuron_ids()
-            self.speciate()
+            self._first_population()
+            self._initial_speciation()
 
     def _initialize_neuron_ids(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
@@ -56,12 +56,17 @@ class Population:
     def speciate(self):
         def find_species_for_genome(genome):
             for species_instance in self.species.values():
-                if species_instance.is_same_species(genome):
+                if species_instance.is_same_species(genome, config.distance_threshold):
                     return species_instance
             return None
+        
+        # Clear all genomes including elites from all species,
+        # but keep representatives
+        for species_instance in self.species.values():
+            species_instance.genomes = {}
+            species_instance.elites = {}
 
-        # Print the genomes count of current population
-
+        print("Starting speciation...")
         for genome in self.genomes.values():
             species_instance = find_species_for_genome(genome)
             if species_instance:
@@ -70,14 +75,49 @@ class Population:
                 new_species = Species()
                 new_species.add_genome(genome)
                 self.species[new_species.id] = new_species
+        print("gone through all genomes")
 
+        print("Number of species:", len(self.species))
         species_ratio = len(self.species) / config.target_species
+        print("Species ratio:", species_ratio)
         adjustment_factor = (
             1.0 - config.distance_adj_factor
             if species_ratio < 1.0
             else 1.0 + config.distance_adj_factor
         )
+        print("Adjustment factor:", adjustment_factor)
         config.distance_threshold *= adjustment_factor
+        print("Distance threshold:", config.distance_threshold)
+
+    def _initial_speciation(self):
+        # execute speciate until species count stabilizes
+
+        previous_species_count = None
+        stabilized = False
+        stabilizing = 0
+
+        while len(self.species) != config.target_species:
+            while not stabilized:
+                self.speciate()
+                if len(self.species) == previous_species_count:
+                    stabilizing += 1
+                    stabilized = stabilizing >= config.init_species_stabilization
+                else:
+                    previous_species_count = len(self.species)
+            break
+
+        self.remove_empty_species()
+
+    # remove empty species
+    def remove_empty_species(self):
+        species_to_remove = []
+        for species_instance in self.species.values():
+            if not species_instance.genomes:
+                # append species id to list of species to remove
+                species_to_remove.append(species_instance.id)
+        # remove species from population
+        for species_id in species_to_remove:
+            del self.species[species_id] 
 
     def evaluate(self):
 
@@ -250,17 +290,15 @@ class Population:
         for species_instance in self.species.values():
             species_instance.age += 1
         
-        # removes all genomes that are not in self.genomes from all species
-        self.remove_genomes_from_species()
+        self.purge_species()
     
-    def remove_genomes_from_species(self):
+    def purge_species(self):
+        # removes from all species all genomes that are not representative nor in population
         for species_instance in self.species.values():
-            species_instance.genomes = {
-                genome_id: genome
-                for genome_id, genome in species_instance.genomes.items()
-                if genome_id in self.genomes
-            }
-
+            for genome_id in list(species_instance.genomes.keys()):
+                if genome_id not in self.genomes and genome_id != species_instance.representative:
+                    del species_instance.genomes[genome_id]
+        
     def carry_over_elites(self, next_gen_elites):
         for species_instance in self.species.values():
 
