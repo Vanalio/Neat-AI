@@ -75,17 +75,20 @@ class Population:
                 new_species.add_genome(genome)
                 self.species[new_species.id] = new_species
 
-        print("Number of species:", len(self.species))
-        species_ratio = len(self.species) / config.target_species
-        print("Species ratio:", species_ratio)
+        # compute number of non empty species
+        
+        non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
+        print(f"Number of non empty species: {non_empty_species}")
+        species_ratio = non_empty_species / config.target_species
+        #print("Species ratio:", species_ratio)
         adjustment_factor = (
             1.0 - config.distance_adj_factor
             if species_ratio < 1.0
             else 1.0 + config.distance_adj_factor
         )
-        print("Adjustment factor:", adjustment_factor)
+        #print("Adjustment factor:", adjustment_factor)
         config.distance_threshold *= adjustment_factor
-        print("Distance threshold:", config.distance_threshold)
+        #print("Distance threshold:", config.distance_threshold)
 
     def _initial_speciation(self):
         # execute speciate until species count stabilizes
@@ -185,23 +188,28 @@ class Population:
 
     def sort_and_stats(self):
         for _, species in self.species.items():
-            sorted_genomes = sorted(
-                species.genomes.values(),
-                key=lambda genome: genome.fitness,
-                reverse=True,
-            )
-            species.genomes = {genome.id: genome for genome in sorted_genomes}
-            species.elites = {
-                genome.id: genome
-                for genome in sorted_genomes[: config.elites_per_species]
-            }
-            species.total_fitness = sum(
-                genome.fitness for genome in species.genomes.values()
-            )
-            print (f"{len(species.genomes)} genomes in species {species.id}") 
-            species.average_shared_fitness = species.total_fitness / (
-                len(species.genomes) ** 2
-            )
+            # if species has at least one genome
+            if species.genomes:
+                sorted_genomes = sorted(
+                    species.genomes.values(),
+                    key=lambda genome: genome.fitness,
+                    reverse=True,
+                )
+                species.genomes = {genome.id: genome for genome in sorted_genomes}
+                species.elites = {
+                    genome.id: genome
+                    for genome in sorted_genomes[: config.elites_per_species]
+                }
+                species.total_fitness = sum(
+                    genome.fitness for genome in species.genomes.values()
+                )
+                #print (f"{len(species.genomes)} genomes in species {species.id}") 
+                species.average_shared_fitness = species.total_fitness / (
+                    len(species.genomes) ** 2
+                )
+            else:
+                species.average_shared_fitness = 0
+                species.total_fitness = 0
 
         sorted_species = sorted(
             self.species.items(),
@@ -223,13 +231,17 @@ class Population:
     def print_population_info(self):
         print("Population info:")
         for _, species in self.species.items():
-            print(
-                f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}", \
-                f"Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
-            )
+            if species.genomes or species.elites:
+                print(
+                    f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}", \
+                    f"Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
+                )
+                non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
         # count current number of species
-        print(f"Number of species: {len(self.species)}, distance threshold: {config.distance_threshold}")
-        print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}")
+        print(f"Number of species: {len([s for s in self.species.values() if s.genomes or s.elites])},", \
+              f"distance threshold: {config.distance_threshold}")
+        print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
+        print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}")
 
     def prune(self):
         self.prune_genomes_from_species()
@@ -295,7 +307,7 @@ class Population:
         # removes from all species all genomes that are not representative nor in population
         for species_instance in self.species.values():
             for genome_id in list(species_instance.genomes.keys()):
-                if genome_id not in self.genomes and genome_id != species_instance.representative:
+                if genome_id not in self.genomes and genome_id != species_instance.representative.id:
                     del species_instance.genomes[genome_id]
         
     def carry_over_elites(self, next_gen_elites):
@@ -309,6 +321,9 @@ class Population:
 
         needed_offspring = config.population_size - len(next_gen_elites)
         for species_instance in self.species.values():
+            # ignore if species has no genomes
+            if not species_instance.genomes:
+                continue
             offspring_count = self.get_offspring_count(
                 species_instance, needed_offspring
             )
@@ -330,10 +345,10 @@ class Population:
         return offspring_count
 
     def random_species(self):
-
-        if not self.species:
-            raise ValueError("No species available to choose from.")
-        return random.choice(list(self.species.values()))
+        species_with_genomes = [s for s in self.species.values() if s.genomes]
+        if not species_with_genomes:
+            raise ValueError("No species available to choose from or no species with genomes.")
+        return random.choice(species_with_genomes)
 
     def save_genomes_to_file(self, file_path):
         with open(file_path, "wb") as file:

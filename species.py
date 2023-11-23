@@ -20,18 +20,22 @@ class Species:
         self.genomes = dict(list(self.genomes.items())[:cutoff])
 
     def produce_offspring(self, offspring_count=1):
-        genome_list = list(self.genomes.values())  # Convert dictionary values to a list
-        total_genomes = len(genome_list)
-        weights = [total_genomes - rank for rank in range(total_genomes)]
+        if not self.genomes:
+            raise ValueError("No genomes in the species to produce offspring from.")
+        
+        else:
+            genome_list = list(self.genomes.values())  # Convert dictionary values to a list
+            total_genomes = len(genome_list)
+            weights = [total_genomes - rank for rank in range(total_genomes)]
 
-        offspring = {}
+            offspring = {}
 
-        for _ in range(offspring_count):
-            # Select two parent genomes based on rank from the list
-            parent1, parent2 = random.choices(genome_list, weights=weights, k=2)
-            new_genome = parent1.crossover(parent2)
-            new_genome.mutate()
-            offspring[new_genome.id] = new_genome
+            for _ in range(offspring_count):
+                # Select two parent genomes based on rank from the list
+                parent1, parent2 = random.choices(genome_list, weights=weights, k=2)
+                new_genome = parent1.crossover(parent2)
+                new_genome.mutate()
+                offspring[new_genome.id] = new_genome
 
         return offspring
 

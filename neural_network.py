@@ -107,8 +107,8 @@ class NeuralNetwork:
                 accumulated_input_tensor
             )
 
-        output_array = output_tensor.detach().numpy()
+        output_array = output_tensor.detach().cpu().numpy()
         return output_array
 
     def reset_hidden_states(self):
-        self.hidden_states = torch.zeros_like(self.hidden_states)
+        self.hidden_states = torch.zeros_like(self.hidden_states, device=self.device)
