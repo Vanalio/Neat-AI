@@ -16,22 +16,13 @@ class Genome:
         self.connection_genes = {}
         self.fitness = None
         self.species_id = None
-        self.network = None
-        self.network_needs_rebuild = True
 
     def create(self, input_ids, output_ids, hidden_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
         self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
         self.add_neurons("hidden", count=len(hidden_ids), neuron_ids=hidden_ids)
 
-        max_possible_conn = config.hidden_neurons * (
-            config.input_neurons + config.hidden_neurons + config.output_neurons
-        )
-        attempts = min(
-            config.initial_conn_attempts,
-            max_possible_conn * config.attempts_to_max_factor,
-        )
-        self.attempt_connections(from_layer=None, to_layer=None, attempts=attempts)
+        self.add_connections(from_layer=None, to_layer=None, count=config.initial_connections)
 
         return self
 
@@ -43,7 +34,20 @@ class Genome:
             new_neuron = NeuronGene(layer, neuron_id)
             self.neuron_genes[neuron_id] = new_neuron
 
-    def attempt_connections(self, from_layer=None, to_layer=None, attempts=1):
+    def add_connections(self, from_layer=None, to_layer=None, count=1):
+        
+        max_possible_conn = config.hidden_neurons * (
+            config.input_neurons + config.hidden_neurons + config.output_neurons
+        )
+
+        #max_possible_conn = number of enabled hidden neurons * (config.input_neurons + number of enabled hidden neurons + config.output_neurons)
+        enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
+        max_possible_conn = enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons)
+
+        attempts = min(
+            config.connection_attempts,
+            max_possible_conn * config.max_to_attempts_factor,
+        )
 
         for _ in range(attempts):
             from_neurons = []
@@ -256,57 +260,14 @@ class Genome:
         if random.random() < config.neuron_toggle_chance:
             self.mutate_neuron_toggle()
 
-        self.network_needs_rebuild = True
-
     def mutate_add_connection(self):
 
-        max_possible_conn = len(
-            [
-                neuron
-                for neuron in self.neuron_genes.values()
-                if neuron.layer == "hidden" and neuron.enabled
-            ]
-        ) * (
-            len(
-                [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == "input" and neuron.enabled
-                ]
-            )
-            + len(
-                [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == "hidden" and neuron.enabled
-                ]
-            )
-            + len(
-                [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == "output" and neuron.enabled
-                ]
-            )
-        )
-
-        attempts = min(
-            config.initial_conn_attempts,
-            max_possible_conn * config.attempts_to_max_factor,
-        )
-
-        connection_attempts = [
-            lambda: self.attempt_connections(
-                from_layer="input", to_layer="hidden", attempts=attempts
-            ),
-            lambda: self.attempt_connections(
-                from_layer="hidden", to_layer="hidden", attempts=attempts
-            ),
-            lambda: self.attempt_connections(
-                from_layer="hidden", to_layer="output", attempts=attempts
-            ),
+        connection_types = [
+            lambda: self.add_connections(from_layer="input", to_layer="hidden"),
+            lambda: self.add_connections(from_layer="hidden", to_layer="hidden"),
+            lambda: self.add_connections(from_layer="hidden", to_layer="output")
         ]
-        random.choice(connection_attempts)()
+        random.choice(connection_types)()
 
     def mutate_add_neuron(self):
 

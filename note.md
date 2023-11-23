@@ -2,7 +2,7 @@
 
 ## FIXME
 
-distance!
+mutate add connection should add, trying max attempts if needed
 
 ## ADD
 

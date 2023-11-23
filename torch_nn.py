@@ -57,4 +57,3 @@ class CustomNetwork(nn.Module):
 
     def reset_states(self):
         self.neuron_states = torch.zeros_like(self.neuron_states)
-
