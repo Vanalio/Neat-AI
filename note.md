@@ -60,3 +60,12 @@ you need to somehow manage the rnn using state saving.
 use the best approach in terms of speed and memory footprint. we have access to gpus if needed.
 
 the code must be VERY short and still completely functional!!!
+
+make a class for the neurons with: neuron_id, layer, activation, bias
+make a class for connections with: from_neuron_id, to neuron_id, weight
+
+build a network that manage all the computations and fed with an input gives output at each timestep
+
+it needs to be able to manage the most general case, the most various recurrent topologies
+
+use pytorch at each and every possible point

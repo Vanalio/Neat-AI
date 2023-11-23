@@ -1,6 +1,7 @@
 import random
 import pickle
 import gymnasium as gym
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from managers import IdManager
 from genome import Genome
@@ -151,7 +152,16 @@ class Population:
             genome.fitness = 1
 
     def evaluate_parallel(self):
-        pass
+        with ThreadPoolExecutor(max_workers=config.parallelization) as executor:
+            futures = {executor.submit(self.evaluate_single_genome, genome): genome for genome in self.genomes.values()}
+
+            for future in as_completed(futures):
+                genome = futures[future]
+                try:
+                    fitness = future.result()
+                    genome.fitness = fitness
+                except Exception as e:
+                    print(f"An error occurred during genome evaluation: {e}")
 
     def evaluate_single_genome(self, genome):
 
@@ -168,6 +178,7 @@ class Population:
 
         while not done:
             action = neural_network.propagate(observation)
+            #print("Action:", action)
 
             observation, reward, terminated, truncated, _ = self.environment.step(
                 action
