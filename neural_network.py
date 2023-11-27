@@ -1,114 +1,74 @@
 import torch
+import torch.nn as nn
 
 from torch_activation_functions import ActivationFunctions as activation_functions
-
 from config import Config
 
 config = Config("config.ini", "DEFAULT")
 
+class NeuralNetwork(nn.Module):
+    def __init__(self, genome, input_ids, output_ids, refractory_factor=config.refractory_factor):
+        super(NeuralNetwork, self).__init__()
 
-class NeuralNetwork:
-    def __init__(self, genome, input_ids, output_ids):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.neurons = {}
-        self.connections = {}
-        self.hidden_indices = {}
-        self.input_indices = {neuron_id: idx for idx, neuron_id in enumerate(input_ids)}
-        self.output_indices = {
-            neuron_id: idx for idx, neuron_id in enumerate(output_ids)
-        }
-        self.hidden_states = None
-        self.build_network(genome)
+        # Extract neurons from genome and create neuron ID to index mapping
+        self.neurons = {neuron.id: neuron for neuron in genome.neuron_genes.values()}
+        self.neuron_id_to_index = {neuron_id: index for index, neuron_id in enumerate(self.neurons.keys())}
 
-    def build_network(self, genome):
+        # Initialize neuron states
+        num_neurons = len(self.neurons)
+        self.neuron_states = torch.zeros(num_neurons, dtype=torch.float32)
 
-        hidden_neurons = [
-            n for n in genome.neuron_genes.values() if n.layer == "hidden" and n.enabled
-        ]
-
-        for idx, neuron in enumerate(hidden_neurons):
-
-            self.neurons[neuron.id] = neuron
-
-            self.hidden_indices[neuron.id] = idx
-
-        for neuron_id in self.input_indices:
-            if (
-                neuron_id in genome.neuron_genes
-                and genome.neuron_genes[neuron_id].enabled
-            ):
-                self.neurons[neuron_id] = genome.neuron_genes[neuron_id]
-
-        for neuron_id in self.output_indices:
-            if (
-                neuron_id in genome.neuron_genes
-                and genome.neuron_genes[neuron_id].enabled
-            ):
-                self.neurons[neuron_id] = genome.neuron_genes[neuron_id]
-
-        self.hidden_states = torch.zeros(len(hidden_neurons), device=self.device)
+        # Create weight matrix and bias vector
+        self.weight_matrix = torch.zeros(num_neurons, num_neurons, dtype=torch.float32)
+        self.biases = torch.zeros(num_neurons, dtype=torch.float32)
 
         for conn in genome.connection_genes.values():
+            from_index = self.neuron_id_to_index[conn.from_neuron]
+            to_index = self.neuron_id_to_index[conn.to_neuron]
+            self.weight_matrix[from_index, to_index] = conn.weight
 
-            if (
-                conn.enabled
-                and conn.from_neuron in self.neurons
-                and conn.to_neuron in self.neurons
-            ):
+        for neuron_id, neuron in self.neurons.items():
+            neuron_index = self.neuron_id_to_index[neuron_id]
+            self.biases[neuron_index] = neuron.bias
 
-                self.connections[(conn.from_neuron, conn.to_neuron)] = conn
+        # Index neurons by type and store their activation functions
+        self.layer_activation_functions = {}
+        self.layer_indices = {'input': [], 'hidden': [], 'output': []}
 
-    def propagate(self, input_values):
-        input_tensor = torch.from_numpy(input_values).float().to(self.device)
+        for neuron_id, neuron in self.neurons.items():
+            neuron_index = self.neuron_id_to_index[neuron_id]
+            self.layer_indices[neuron.layer].append(neuron_index)
+            if neuron.layer not in self.layer_activation_functions:
+                # Retrieve the activation function using getattr
+                activation_func = getattr(activation_functions, neuron.activation, None)
+                if activation_func is None:
+                    raise ValueError(f"Activation function '{neuron.activation}' not found in ActivationFunctions class")
+                self.layer_activation_functions[neuron.layer] = activation_func
 
-        output_tensor = torch.zeros(len(self.output_indices), device=self.device)
+        # Refractory factor
+        self.refractory_factor = refractory_factor
 
-        new_hidden_states = self.hidden_states.clone()
-        output_accumulation = {neuron_id: 0.0 for neuron_id in self.output_indices}
+    def forward(self, input_values):
+        # Apply refractory factor to hidden states
+        hidden_indices = self.layer_indices['hidden']
+        self.neuron_states[hidden_indices] *= self.refractory_factor
 
-        for (from_neuron, to_neuron), conn in self.connections.items():
-            activation_input = None
+        # Assign input values to input neurons
+        input_indices = self.layer_indices['input']
+        self.neuron_states[input_indices] = torch.tensor(input_values, dtype=torch.float32)
 
-            if from_neuron in self.input_indices:
-                input_index = self.input_indices[from_neuron]
-                activation_input = input_tensor[input_index] * conn.weight
+        # Propagate through the network
+        total_input = torch.matmul(self.neuron_states, self.weight_matrix) + self.biases
 
-            elif from_neuron in self.hidden_indices:
-                hidden_index = self.hidden_indices[from_neuron]
-                activation_input = self.hidden_states[hidden_index] * conn.weight
+        # Apply activation functions by layer
+        for layer, indices in self.layer_indices.items():
+            if layer != 'input':  # Skip input layer for activations
+                activation_func = self.layer_activation_functions[layer]
+                self.neuron_states[indices] = activation_func(total_input[indices])
 
-            if activation_input is not None:
-                target_neuron = self.neurons[to_neuron]
-                activation_func = getattr(
-                    activation_functions, target_neuron.activation
-                )
-                activation_output = activation_func(
-                    activation_input + target_neuron.bias
-                )
+        # Extract and return output states
+        output_indices = self.layer_indices['output']
+        return self.neuron_states[output_indices]
 
-                if to_neuron in self.hidden_indices:
-                    hidden_index = self.hidden_indices[to_neuron]
-                    new_hidden_states[hidden_index] += activation_output
-
-                elif to_neuron in self.output_indices:
-                    output_accumulation[to_neuron] += activation_output.item()
-
-        self.hidden_states = new_hidden_states * config.refractory_factor
-
-        for neuron_id, accumulated_input in output_accumulation.items():
-            output_neuron = self.neurons[neuron_id]
-            output_activation_func = getattr(
-                activation_functions, output_neuron.activation
-            )
-            accumulated_input_tensor = torch.tensor(
-                [accumulated_input], dtype=torch.float32
-            )
-            output_tensor[self.output_indices[neuron_id]] = output_activation_func(
-                accumulated_input_tensor
-            )
-
-        output_array = output_tensor.detach().cpu().numpy()
-        return output_array
-
-    def reset_hidden_states(self):
-        self.hidden_states = torch.zeros_like(self.hidden_states, device=self.device)
+    def reset_states(self):
+        self.neuron_states = torch.zeros_like(self.neuron_states)

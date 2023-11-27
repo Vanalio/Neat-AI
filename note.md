@@ -2,10 +2,12 @@
 
 ## FIXME
 
-mutate add connection should add, trying max attempts if needed
+action return values out of range?
+add connections, max_new, attempts not working?
 
 ## ADD
 
+cuda gpu device
 randomize activation function at creation or mutate_add_neuron with random.choice(ActivationFunctions.get_activation_functions())
 implement generations without improvement
 implement interspecies mating

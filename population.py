@@ -1,12 +1,14 @@
 import random
 import pickle
 import gymnasium as gym
+import torch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from managers import IdManager
 from genome import Genome
 from species import Species
 from neural_network import NeuralNetwork
+from visualization import visualize_genome
 
 from config import Config
 
@@ -22,24 +24,48 @@ class Population:
         self.environment = None
         if first:
             self._initialize_neuron_ids()
-            self.print_neuron_ids()
             self._first_population()
             self._initial_speciation()
 
     def _initialize_neuron_ids(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        self.hidden_ids = [IdManager.get_new_id() for _ in range(config.hidden_neurons)]
-
+        #self.hidden_ids = [IdManager.get_new_id() for _ in range(config.hidden_neurons)]
+        self._print_neuron_ids()
+        
     def _first_population(self):
         for _ in range(config.population_size):
-            genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
+            #genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
+            genome = Genome().create(self.input_ids, self.output_ids, hidden_ids=None)
             self.genomes[genome.id] = genome
 
-    def print_neuron_ids(self):
+    def _print_neuron_ids(self):
         print("Input Neuron IDs:", self.input_ids)
-        print("Hidden Neuron IDs:", self.hidden_ids)
+        #print("Hidden Neuron IDs:", self.hidden_ids)
         print("Output Neuron IDs:", self.output_ids)
+
+    def _initial_speciation(self):
+        # execute speciate until species count stabilizes
+
+        previous_species_count = None
+        stabilized = False
+        stabilizing = 0
+        tries = 0
+
+        
+        while not stabilized and len(self.species) != config.target_species and tries < config.init_species_max_tries:
+            self.speciate()
+            self.remove_empty_species()
+            tries += 1
+
+            if len(self.species) == previous_species_count:
+                stabilizing += 1
+                stabilized = stabilizing >= config.init_species_stabilization
+            else:
+                stabilizing = 0
+                stabilized = False
+
+            previous_species_count = len(self.species)
 
     def evolve(self):
         print("Evaluation...")
@@ -76,41 +102,19 @@ class Population:
                 new_species.add_genome(genome)
                 self.species[new_species.id] = new_species
 
-        # compute number of non empty species
-        
         non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
-        print(f"Number of non empty species: {non_empty_species}")
         species_ratio = non_empty_species / config.target_species
-        #print("Species ratio:", species_ratio)
+
         adjustment_factor = (
             1.0 - config.distance_adj_factor
             if species_ratio < 1.0
             else 1.0 + config.distance_adj_factor
         )
-        #print("Adjustment factor:", adjustment_factor)
+
         config.distance_threshold *= adjustment_factor
-        #print("Distance threshold:", config.distance_threshold)
 
-    def _initial_speciation(self):
-        # execute speciate until species count stabilizes
+        print(f"Number of not empty species: {non_empty_species}, distance threshold: {config.distance_threshold}")
 
-        previous_species_count = None
-        stabilized = False
-        stabilizing = 0
-
-        while len(self.species) != config.target_species:
-            while not stabilized:
-                self.speciate()
-                if len(self.species) == previous_species_count:
-                    stabilizing += 1
-                    stabilized = stabilizing >= config.init_species_stabilization
-                else:
-                    previous_species_count = len(self.species)
-            break
-
-        self.remove_empty_species()
-
-    # remove empty species
     def remove_empty_species(self):
         species_to_remove = []
         for species_instance in self.species.values():
@@ -164,32 +168,39 @@ class Population:
                     print(f"An error occurred during genome evaluation: {e}")
 
     def evaluate_single_genome(self, genome):
-
         observation = self.environment.reset()
 
         if isinstance(observation, tuple):
             observation = observation[0]
 
         neural_network = NeuralNetwork(genome, self.input_ids, self.output_ids)
-        neural_network.reset_hidden_states()
+        neural_network.reset_states()
 
         done = False
         total_reward = 0
 
         while not done:
-            action = neural_network.propagate(observation)
-            #print("Action:", action)
+            action = neural_network.forward(observation)
 
-            observation, reward, terminated, truncated, _ = self.environment.step(
-                action
-            )
+            # Step in the environment
+            observation, reward, terminated, truncated, _ = self.environment.step(action)
+
+            # Print the reward type and value
+            #print(f"Reward type: {type(reward)}, Reward value: {reward}")
+
+            # Convert the reward to a Python float if it's a tensor
+            if isinstance(reward, torch.Tensor):
+                reward = reward.item()
+
             total_reward += reward
+
+            #print(f"Progressive total reward: {total_reward}")
 
             if isinstance(observation, tuple):
                 observation = observation[0]
 
             done = terminated or truncated
-
+        #print(f"Genome {genome.id} finished with fitness {total_reward}")
         return total_reward
 
     def relu_offset_fitness(self):

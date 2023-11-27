@@ -1,4 +1,7 @@
+from calendar import c
 import random
+
+from matplotlib.pylab import f
 
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
@@ -20,11 +23,27 @@ class Genome:
     def create(self, input_ids, output_ids, hidden_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
         self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
-        self.add_neurons("hidden", count=len(hidden_ids), neuron_ids=hidden_ids)
+        self.add_neurons("hidden", count=config.hidden_neurons, neuron_ids=None)
 
-        self.add_connections(from_layer=None, to_layer=None, count=config.initial_connections)
+        initial_connections = int(self.max_new_connections() * config.initial_connections_quota)
+        #print(f"Initial connections: {initial_connections}")
+        self.add_connections(count=initial_connections)
+        #print(f"Created genome {self.id} with {len(self.neuron_genes)} neurons and {len(self.connection_genes)} connections")
 
         return self
+
+    def max_new_connections(self):
+        enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
+        # Count current connections
+        current_connections = len(self.connection_genes)
+        max_new_connections = (enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons)) - current_connections
+
+        return max_new_connections
+
+    def max_attempts(self):
+        max_attempts = int(self.max_new_connections() * config.max_to_attempts_factor)
+
+        return max_attempts
 
     def add_neurons(self, layer, count, neuron_ids=None):
         if neuron_ids is None:
@@ -35,69 +54,42 @@ class Genome:
             self.neuron_genes[neuron_id] = new_neuron
 
     def add_connections(self, from_layer=None, to_layer=None, count=1):
-        
-        max_possible_conn = config.hidden_neurons * (
-            config.input_neurons + config.hidden_neurons + config.output_neurons
-        )
 
-        #max_possible_conn = number of enabled hidden neurons * (config.input_neurons + number of enabled hidden neurons + config.output_neurons)
-        enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
-        max_possible_conn = enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons)
+        attempts = 0
+        added_connections = 0
 
-        attempts = min(
-            config.connection_attempts,
-            max_possible_conn * config.max_to_attempts_factor,
-        )
+        while added_connections != count and attempts < self.max_attempts():
 
-        for _ in range(attempts):
             from_neurons = []
             to_neurons = []
 
             if from_layer and to_layer:
-
-                from_neurons = [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == from_layer
-                ]
-                to_neurons = [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == to_layer
-                ]
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer]
             else:
-
                 from_layers = ["input", "hidden"]
                 attempting_from_layer = random.choice(from_layers)
                 if attempting_from_layer == "input":
                     attempting_to_layer = "hidden"
                 else:
                     attempting_to_layer = random.choice(["hidden", "output"])
-                from_neurons = [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == attempting_from_layer
-                ]
-                to_neurons = [
-                    neuron
-                    for neuron in self.neuron_genes.values()
-                    if neuron.layer == attempting_to_layer
-                ]
 
-            if not from_neurons or not to_neurons:
-                continue
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer]
 
             from_neuron = random.choice(from_neurons)
             to_neuron = random.choice(to_neurons)
 
-            existing_connection = any(
-                conn.from_neuron == from_neuron.id and conn.to_neuron == to_neuron.id
-                for conn in self.connection_genes.values()
-            )
+            existing_connection = any(conn.from_neuron == from_neuron.id and conn.to_neuron == to_neuron.id for conn in self.connection_genes.values())
 
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
                 self.connection_genes[new_connection.id] = new_connection
+                added_connections += 1
+                #print(f"Added connections: {added_connections} of {count}")
+
+            attempts += 1
+            #print(f"Attempt {attempts} of {self.max_attempts(count)}")
 
     def crossover(self, other_genome):
         offspring = Genome()
@@ -263,9 +255,9 @@ class Genome:
     def mutate_add_connection(self):
 
         connection_types = [
-            lambda: self.add_connections(from_layer="input", to_layer="hidden"),
-            lambda: self.add_connections(from_layer="hidden", to_layer="hidden"),
-            lambda: self.add_connections(from_layer="hidden", to_layer="output")
+            lambda: self.add_connections(from_layer="input", to_layer="hidden", count=1),
+            lambda: self.add_connections(from_layer="hidden", to_layer="hidden", count=1),
+            lambda: self.add_connections(from_layer="hidden", to_layer="output", count=1)
         ]
         random.choice(connection_types)()
 
@@ -305,7 +297,7 @@ class Genome:
         if random.random() < config.weight_perturb_vs_set_chance:
             gene_to_mutate.weight = (
                 random.uniform(-1, 1)
-                * config.weight_mutate_factor
+                * config.max_abs_weight_mutate_factor
                 * gene_to_mutate.weight
             )
 
@@ -320,7 +312,7 @@ class Genome:
 
         if random.random() < config.bias_perturb_vs_set_chance:
             gene_to_mutate.bias = (
-                random.uniform(-1, 1) * config.bias_mutate_factor * gene_to_mutate.bias
+                random.uniform(-1, 1) * config.max_abs_bias_mutate_factor * gene_to_mutate.bias
             )
 
         else:
@@ -374,62 +366,68 @@ class Genome:
         return new_genome
 
     def calculate_genetic_distance(self, other_genome):
+        # Extract the highest innovation numbers
+        self_connection_genes = self.connection_genes.values()
+        other_connection_genes = other_genome.connection_genes.values()
+        max_inno1 = max((gene.innovation_number for gene in self_connection_genes), default=0)
+        max_inno2 = max((gene.innovation_number for gene in other_connection_genes), default=0)
+        #print(f"Max innovation numbers: {max_inno1}, {max_inno2}")
 
-        inno_to_conn_gene1 = {
-            gene.innovation_number: gene for gene in self.connection_genes.values()
-        }
-        inno_to_conn_gene2 = {
-            gene.innovation_number: gene
-            for gene in other_genome.connection_genes.values()
-        }
+        disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
 
-        max_inno1 = max(inno_to_conn_gene1.keys(), default=0)
-        max_inno2 = max(inno_to_conn_gene2.keys(), default=0)
+        # Create sets of innovation numbers for efficient comparison
+        self_inno_set = {gene.innovation_number for gene in self_connection_genes}
+        other_inno_set = {gene.innovation_number for gene in other_connection_genes}
+        #print(f"Self innovation numbers: {self_inno_set}")
+        #print(f"Other innovation numbers: {other_inno_set}")
 
-        disjoint_genes = (
-            excess_genes
-        ) = matching_genes = weight_diff = activation_diff = 0
+        # Calculate excess genes
+        excess_self = {inno for inno in self_inno_set if inno > max_inno2}
+        excess_other = {inno for inno in other_inno_set if inno > max_inno1}
+        #print(f"Excess self: {excess_self}")
+        #print(f"Excess other: {excess_other}")
 
-        for inno_num in set(inno_to_conn_gene1.keys()).union(inno_to_conn_gene2.keys()):
-            in_gene1 = inno_num in inno_to_conn_gene1
-            in_gene2 = inno_num in inno_to_conn_gene2
 
-            if in_gene1 and in_gene2:
+        # Calculate disjoint genes (genes not in excess and not in the other genome)
+        disjoint_self = self_inno_set - other_inno_set - excess_self
+        #print(f"Disjoint self: {disjoint_self}")
+        disjoint_other = other_inno_set - self_inno_set - excess_other
+        #print(f"Disjoint other: {disjoint_other}")
+        disjoint = disjoint_self | disjoint_other
+        #print(f"Disjoint: {disjoint}")
 
+        # Process matching genes
+        for gene in self_connection_genes:
+            inno_num = gene.innovation_number
+            if inno_num in other_inno_set:
                 matching_genes += 1
-                weight_diff += abs(
-                    inno_to_conn_gene1[inno_num].weight
-                    - inno_to_conn_gene2[inno_num].weight
-                )
-            elif in_gene1:
-                if inno_num <= max_inno2:
-                    disjoint_genes += 1
-                else:
-                    excess_genes += 1
-            elif in_gene2:
-                if inno_num <= max_inno1:
-                    disjoint_genes += 1
-                else:
-                    excess_genes += 1
+                other_gene = other_genome.connection_genes.get(inno_num)
+                if other_gene:
+                    weight_diff += abs(gene.weight - other_gene.weight)
 
-        for neuron_id in set(self.neuron_genes.keys()).union(
-            other_genome.neuron_genes.keys()
-        ):
-            neuron1 = self.neuron_genes.get(neuron_id)
-            neuron2 = other_genome.neuron_genes.get(neuron_id)
+        # Update counts for disjoint and excess genes
+        disjoint_genes = len(disjoint)
+        excess_genes = len(excess_self) + len(excess_other)
+        #print(f"Disjoint genes: {disjoint_genes} - Excess genes: {excess_genes}")
 
-            if neuron1 and neuron2:
-                activation_diff += neuron1.activation != neuron2.activation
+        # Neuron genes comparison
+        self_neuron_genes = self.neuron_genes
+        #print(f"Self neuron genes: {self_neuron_genes}")
+        other_neuron_genes = other_genome.neuron_genes
+        #print(f"Other neuron genes: {other_neuron_genes}")
+        common_neurons = self_neuron_genes.keys() & other_neuron_genes.keys()
+        #print(f"Common neurons: {common_neurons}")
+        activation_diff = sum(self_neuron_genes[neuron_id].activation != other_neuron_genes[neuron_id].activation for neuron_id in common_neurons)
 
+        # Compute average differences if there are matching genes
         if matching_genes > 0:
             weight_diff /= matching_genes
             activation_diff /= matching_genes
 
-        N = max(len(inno_to_conn_gene1), len(inno_to_conn_gene2))
-        distance = ((config.disjoint_coefficient * disjoint_genes) + (config.excess_coefficient * excess_genes)) / N + (config.activation_diff_coefficient * activation_diff) + (config.weight_diff_coefficient * weight_diff)
-
-        #print(
-            #f"Genetic distance between genome {self.id} and genome {other_genome.id} is {distance}"
-        #)
+        # Calculate the genetic distance
+        N = max(len(self_connection_genes), len(other_connection_genes))
+        N = max(N, 1)  # Prevent division by zero
+        distance = (config.disjoint_coefficient * disjoint_genes + config.excess_coefficient * excess_genes) / N + config.activation_diff_coefficient * activation_diff + config.weight_diff_coefficient * weight_diff
+        #print(f"Distance: {distance}")
 
         return distance
