@@ -30,18 +30,15 @@ class Population:
     def _initialize_neuron_ids(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        #self.hidden_ids = [IdManager.get_new_id() for _ in range(config.hidden_neurons)]
         self._print_neuron_ids()
         
     def _first_population(self):
         for _ in range(config.population_size):
-            #genome = Genome().create(self.input_ids, self.output_ids, self.hidden_ids)
             genome = Genome().create(self.input_ids, self.output_ids, hidden_ids=None)
             self.genomes[genome.id] = genome
 
     def _print_neuron_ids(self):
         print("Input Neuron IDs:", self.input_ids)
-        #print("Hidden Neuron IDs:", self.hidden_ids)
         print("Output Neuron IDs:", self.output_ids)
 
     def _initial_speciation(self):
