@@ -26,11 +26,17 @@ class Genome:
         self.add_neurons("hidden", count=config.hidden_neurons, neuron_ids=None)
 
         initial_connections = int(self.max_new_connections() * config.initial_connections_quota)
-        #print(f"Initial connections: {initial_connections}")
         self.add_connections(count=initial_connections)
-        #print(f"Created genome {self.id} with {len(self.neuron_genes)} neurons and {len(self.connection_genes)} connections")
 
         return self
+
+    def add_neurons(self, layer, count, neuron_ids=None):
+        if neuron_ids is None:
+            neuron_ids = [IdManager.get_new_id() for _ in range(count)]
+
+        for neuron_id in neuron_ids:
+            new_neuron = NeuronGene(layer, neuron_id)
+            self.neuron_genes[neuron_id] = new_neuron
 
     def max_new_connections(self):
         enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
@@ -45,13 +51,6 @@ class Genome:
 
         return max_attempts
 
-    def add_neurons(self, layer, count, neuron_ids=None):
-        if neuron_ids is None:
-            neuron_ids = [IdManager.get_new_id() for _ in range(count)]
-
-        for neuron_id in neuron_ids:
-            new_neuron = NeuronGene(layer, neuron_id)
-            self.neuron_genes[neuron_id] = new_neuron
 
     def add_connections(self, from_layer=None, to_layer=None, count=1):
 
