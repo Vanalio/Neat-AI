@@ -250,10 +250,10 @@ class Population:
                 )
                 non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
         # count current number of species
-        print(f"Number of species: {len([s for s in self.species.values() if s.genomes or s.elites])},", \
+        print(f"\nNumber of species: {len([s for s in self.species.values() if s.genomes or s.elites])},", \
               f"distance threshold: {config.distance_threshold}")
         print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
-        print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}")
+        print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
 
     def prune(self):
         self.prune_genomes_from_species()
