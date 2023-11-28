@@ -350,9 +350,9 @@ class Genome:
 
             gene_to_mutate = random.choice(enabled_hidden_neurons)
             gene_to_mutate.enabled = not gene_to_mutate.enabled
-            print(
-                f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}"
-            )
+            #print(
+            #    f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}"
+            #)
         else:
             print(f"No other enabled hidden neurons to toggle in genome {self.id}")
 
