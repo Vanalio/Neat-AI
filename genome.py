@@ -287,9 +287,9 @@ class Genome:
         new_connection1.weight = 1
         new_connection2.weight = gene_to_split.weight
 
-        print(
-            f"Added neuron {new_neuron.id} to genome {self.id} and split connection {gene_to_split.id} into connections {new_connection1.id} and {new_connection2.id}"
-        )
+        #print(
+        #    f"Added neuron {new_neuron.id} to genome {self.id} and split connection {gene_to_split.id} into connections {new_connection1.id} and {new_connection2.id}"
+        #)
 
     def mutate_weight(self):
 
@@ -325,18 +325,18 @@ class Genome:
             [gene for gene in self.neuron_genes.values() if gene.layer == "hidden"]
         )
         gene_to_mutate.activation = random.choice(available_functions)
-        print(
-            f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}"
-        )
+        #print(
+        #    f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}"
+        #)
 
     def mutate_connection_toggle(self):
         gene_to_mutate = random.choice(
             [gene for gene in self.connection_genes.values()]
         )
         gene_to_mutate.enabled = not gene_to_mutate.enabled
-        print(
-            f"Toggled connection {gene_to_mutate.id} from neuron {gene_to_mutate.from_neuron} to neuron {gene_to_mutate.to_neuron} in genome {self.id} to {gene_to_mutate.enabled}"
-        )
+        #print(
+        #    f"Toggled connection {gene_to_mutate.id} from neuron {gene_to_mutate.from_neuron} to neuron {gene_to_mutate.to_neuron} in genome {self.id} to {gene_to_mutate.enabled}"
+        #)
 
     def mutate_neuron_toggle(self):
 

@@ -169,7 +169,7 @@ class Population:
         if isinstance(observation, tuple):
             observation = observation[0]
 
-        neural_network = NeuralNetwork(genome, self.input_ids, self.output_ids)
+        neural_network = NeuralNetwork(genome)
         neural_network.reset_states()
 
         done = False
@@ -179,7 +179,7 @@ class Population:
             action = neural_network.forward(observation)
 
             # print action type and value
-            print(f"Action type: {type(action)}, Action value: {action}")
+            #print(f"Action type: {type(action)}, Action value: {action}")
 
             # Step in the environment
             observation, reward, terminated, truncated, _ = self.environment.step(action)

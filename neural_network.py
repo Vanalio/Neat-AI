@@ -7,8 +7,11 @@ from config import Config
 config = Config("config.ini", "DEFAULT")
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, genome, input_ids, output_ids, refractory_factor=config.refractory_factor):
+    def __init__(self, genome, refractory_factor=config.refractory_factor):
         super(NeuralNetwork, self).__init__()
+
+        # Define device based on GPU availability
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Extract neurons from genome and create neuron ID to index mapping
         self.neurons = {neuron.id: neuron for neuron in genome.neuron_genes.values()}
@@ -16,11 +19,11 @@ class NeuralNetwork(nn.Module):
 
         # Initialize neuron states
         num_neurons = len(self.neurons)
-        self.neuron_states = torch.zeros(num_neurons, dtype=torch.float32)
+        self.neuron_states = torch.zeros(num_neurons, dtype=torch.float32).to(self.device)
 
         # Create weight matrix and bias vector
-        self.weight_matrix = torch.zeros(num_neurons, num_neurons, dtype=torch.float32)
-        self.biases = torch.zeros(num_neurons, dtype=torch.float32)
+        self.weight_matrix = torch.zeros(num_neurons, num_neurons, dtype=torch.float32).to(self.device)
+        self.biases = torch.zeros(num_neurons, dtype=torch.float32).to(self.device)
 
         for conn in genome.connection_genes.values():
             from_index = self.neuron_id_to_index[conn.from_neuron]
@@ -55,7 +58,8 @@ class NeuralNetwork(nn.Module):
 
         # Assign input values to input neurons
         input_indices = self.layer_indices['input']
-        self.neuron_states[input_indices] = torch.tensor(input_values, dtype=torch.float32)
+        input_tensor = torch.tensor(input_values, dtype=torch.float32).to(self.device)
+        self.neuron_states[input_indices] = input_tensor
 
         # Propagate through the network
         total_input = torch.matmul(self.neuron_states, self.weight_matrix) + self.biases
@@ -71,4 +75,4 @@ class NeuralNetwork(nn.Module):
         return self.neuron_states[output_indices].cpu().detach().numpy()
 
     def reset_states(self):
-        self.neuron_states = torch.zeros_like(self.neuron_states)
+        self.neuron_states = torch.zeros_like(self.neuron_states).to(self.device)

@@ -4,7 +4,7 @@ import torch
 class ActivationFunctions:
     @staticmethod
     def get_activation_functions():
-        return ["clipped_relu", "brain_sigmoid", "softsign", "identity"]
+        return ["clipped_relu", "brain_sigmoid", "softsign"]
 
     @staticmethod
     def identity(x):
