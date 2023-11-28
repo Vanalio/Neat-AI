@@ -8,7 +8,6 @@ from managers import IdManager
 from genome import Genome
 from species import Species
 from neural_network import NeuralNetwork
-from visualization import visualize_genome
 
 from config import Config
 

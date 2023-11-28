@@ -1,7 +1,4 @@
-from calendar import c
 import random
-
-from matplotlib.pylab import f
 
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
