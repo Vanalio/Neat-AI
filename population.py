@@ -176,7 +176,10 @@ class Population:
         total_reward = 0
 
         while not done:
-            action = neural_network.forward(observation)
+            action = neural_network.forward(observation).cpu().detach().numpy()
+
+            # print action type and value
+            #print(f"Action type: {type(action)}, Action value: {action}")
 
             # Step in the environment
             observation, reward, terminated, truncated, _ = self.environment.step(action)
