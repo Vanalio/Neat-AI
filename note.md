@@ -2,23 +2,23 @@
 
 ## FIXME
 
-action return values out of range?
-add connections, max_new, attempts not working?
+- action return values out of range?
+- add connections, max_new, attempts not working?
 
 ## ADD
 
-cuda gpu device
-randomize activation function at creation or mutate_add_neuron with random.choice(ActivationFunctions.get_activation_functions())
-implement generations without improvement
-implement interspecies mating
-implement parallel evaluation
-ignore # in the config file
+- cuda gpu device
+- randomize activation function at creation or mutate_add_neuron with random.choice(ActivationFunctions.get_activation_functions())
+- implement generations without improvement
+- implement interspecies mating
+- implement parallel evaluation
+- ignore # in the config file
 
 ## CHECK
 
-check if the network is built correctly and the computation is correct
-disabled genes are correctly inherited
-mutate add connections, attempts, max tries, etc
+- check if the network is built correctly and the computation is correct
+- disabled genes are correctly inherited
+- mutate add connections, attempts, max tries, etc
 
 ## ChatGPT
 
