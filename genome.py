@@ -53,8 +53,11 @@ class Genome:
 
         attempts = 0
         added_connections = 0
+        max_attempts = self.max_attempts()
 
-        while added_connections != count and attempts < self.max_attempts():
+        while added_connections != count and attempts < max_attempts:
+            #print(f"Added connections: {added_connections} of {count}")
+            #print(f"Attempt {attempts} of {max_attempts}")
 
             from_neurons = []
             to_neurons = []
@@ -83,9 +86,11 @@ class Genome:
                 self.connection_genes[new_connection.id] = new_connection
                 added_connections += 1
                 #print(f"Added connections: {added_connections} of {count}")
+            #else:
+                #print(f"Connection already exists between {from_neuron.id} and {to_neuron.id}")
 
             attempts += 1
-            #print(f"Attempt {attempts} of {self.max_attempts(count)}")
+            #print(f"Attempt {attempts} of {max_attempts}")
 
     def crossover(self, other_genome):
         offspring = Genome()

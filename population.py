@@ -176,30 +176,21 @@ class Population:
         total_reward = 0
 
         while not done:
-            action = neural_network.forward(observation).cpu().detach().numpy()
+            action = neural_network.forward(observation)
 
             # print action type and value
-            #print(f"Action type: {type(action)}, Action value: {action}")
+            print(f"Action type: {type(action)}, Action value: {action}")
 
             # Step in the environment
             observation, reward, terminated, truncated, _ = self.environment.step(action)
 
-            # Print the reward type and value
-            #print(f"Reward type: {type(reward)}, Reward value: {reward}")
-
-            # Convert the reward to a Python float if it's a tensor
-            if isinstance(reward, torch.Tensor):
-                reward = reward.item()
-
             total_reward += reward
-
-            #print(f"Progressive total reward: {total_reward}")
 
             if isinstance(observation, tuple):
                 observation = observation[0]
 
             done = terminated or truncated
-        #print(f"Genome {genome.id} finished with fitness {total_reward}")
+
         return total_reward
 
     def relu_offset_fitness(self):
@@ -242,7 +233,7 @@ class Population:
         self.max_fitness = 0
         self.best_genome = None
 
-        for genome_id, genome in self.genomes.items():
+        for _, genome in self.genomes.items():
             if self.max_fitness is None or genome.fitness > self.max_fitness:
                 self.max_fitness = genome.fitness
                 self.best_genome = genome
