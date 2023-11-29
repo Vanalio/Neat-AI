@@ -125,7 +125,7 @@ class Population:
 
         self.environment = gym.make("BipedalWalker-v3", hardcore=True)
         self.environment = gym.wrappers.TimeLimit(
-            self.environment, max_episode_steps=100
+            self.environment, max_episode_steps=config.environment_steps
         )
 
         self.initial_observation = self.environment.reset()
