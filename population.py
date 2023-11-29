@@ -130,12 +130,7 @@ class Population:
 
     def evaluate(self):
 
-        #self.environment = gym.make("BipedalWalker-v3", hardcore=True)
-        #self.environment = gym.wrappers.TimeLimit(
-            #self.environment, max_episode_steps=config.environment_steps
-        #)
-        
-        self.environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
+        self.environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode=config.render_mode)
                 
         print("Run mode:", config.run_mode)
         if config.run_mode == "parallel":
@@ -186,9 +181,6 @@ class Population:
         total_reward = 0
 
         while not done:
-            # BipedaWalker-v3
-            #action = neural_network.forward(observation)
-            #observation, reward, terminated, truncated, _ = self.environment.step(action)
 
             # MoonLander-v2
             # Get output logits from the network
@@ -275,7 +267,10 @@ class Population:
               f"distance threshold: {config.distance_threshold}")
         print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
         print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
-
+        
+        print(f"Best genome neurons id, layer and activation function: {[(n.id, n.layer, n.activation) for n in self.best_genome.neuron_genes.values()]}")
+        print(f"Best genome connections (from neuron id, to neuron id, weight): {[(c.from_neuron, c.to_neuron, c.weight) for c in self.best_genome.connection_genes.values()]}")
+        
     def prune(self):
         self.prune_genomes_from_species()
         self.sort_and_stats()
