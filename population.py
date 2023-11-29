@@ -129,7 +129,7 @@ class Population:
         )
 
         self.initial_observation = self.environment.reset()
-        print("Config mode:", config.mode)
+        print("Run mode:", config.mode)
         if config.mode == "parallel":
             self.evaluate_parallel()
         elif config.mode == "serial":
