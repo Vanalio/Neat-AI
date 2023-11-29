@@ -1,7 +1,9 @@
 import random
 import pickle
+import re
 import gymnasium as gym
 import torch
+import torch.nn.functional as F
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from managers import IdManager
@@ -123,7 +125,12 @@ class Population:
 
     def evaluate(self):
 
-        self.environment = gym.make("BipedalWalker-v3", hardcore=True)
+        #self.environment = gym.make("BipedalWalker-v3", hardcore=True)
+        #self.environment = gym.wrappers.TimeLimit(
+            #self.environment, max_episode_steps=config.environment_steps
+        #)
+
+        self.environment = gym.make("LunarLander-v2", render=True)
         self.environment = gym.wrappers.TimeLimit(
             self.environment, max_episode_steps=config.environment_steps
         )
@@ -175,21 +182,35 @@ class Population:
         done = False
         total_reward = 0
 
+        #while not done:
+            # BipedaWalker-v3
+            #action = neural_network.forward(observation)
+            #observation, reward, terminated, truncated, _ = self.environment.step(action)
+
+            #total_reward += reward
+
+            #if isinstance(observation, tuple):
+                #observation = observation[0]
+
+            #done = terminated or truncated
+
         while not done:
-            action = neural_network.forward(observation)
+            # Get output logits from the network
+            output_logits = neural_network.forward(observation)
 
-            # print action type and value
-            #print(f"Action type: {type(action)}, Action value: {action}")
+            # Apply softmax to convert logits to probabilities (still on GPU)
+            action_probabilities = F.softmax(output_logits, dim=0)
 
-            # Step in the environment
-            observation, reward, terminated, truncated, _ = self.environment.step(action)
+            # Choose the action with the highest probability and transfer to CPU
+            action = torch.argmax(action_probabilities).cpu().item()
+
+            # Step in the environment using the chosen action
+            observation, reward, done, _ = self.environment.step(action)
 
             total_reward += reward
 
             if isinstance(observation, tuple):
                 observation = observation[0]
-
-            done = terminated or truncated
 
         return total_reward
 

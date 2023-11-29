@@ -72,7 +72,7 @@ class NeuralNetwork(nn.Module):
 
         # Extract and return output states
         output_indices = self.layer_indices['output']
-        return self.neuron_states[output_indices].cpu().detach().numpy()
+        return self.neuron_states[output_indices]
 
     def reset_states(self):
         self.neuron_states = torch.zeros_like(self.neuron_states).to(self.device)
