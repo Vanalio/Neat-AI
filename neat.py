@@ -11,7 +11,7 @@ def neat():
 
     for generation in range(config.generations):
         print("\n#############################################")
-        print(f"# GENERATION: {generation + 1}")
+        print(f"# GENERATION: {population.generation}")
 
         population.evolve()
 

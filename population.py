@@ -1,7 +1,10 @@
+from calendar import c
 import random
 import pickle
 import re
 import gymnasium as gym
+from matplotlib.pyplot import step
+from sympy import N
 import torch
 import torch.nn.functional as F
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,6 +23,7 @@ class Population:
     def __init__(self, first=False):
         self.genomes = {}
         self.species = {}
+        self.generation = None
         self.max_fitness = None
         self.best_genome = None
         self.environment = None
@@ -37,6 +41,7 @@ class Population:
         for _ in range(config.population_size):
             genome = Genome().create(self.input_ids, self.output_ids, hidden_ids=None)
             self.genomes[genome.id] = genome
+            self.generation = 1
 
     def _print_neuron_ids(self):
         print("Input Neuron IDs:", self.input_ids)
@@ -129,19 +134,15 @@ class Population:
         #self.environment = gym.wrappers.TimeLimit(
             #self.environment, max_episode_steps=config.environment_steps
         #)
-
-        self.environment = gym.make("LunarLander-v2", render=True)
-        self.environment = gym.wrappers.TimeLimit(
-            self.environment, max_episode_steps=config.environment_steps
-        )
-
-        self.initial_observation = self.environment.reset()
-        print("Run mode:", config.mode)
-        if config.mode == "parallel":
+        
+        self.environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
+                
+        print("Run mode:", config.run_mode)
+        if config.run_mode == "parallel":
             self.evaluate_parallel()
-        elif config.mode == "serial":
+        elif config.run_mode == "serial":
             self.evaluate_serial()
-        elif config.mode == "dumb":
+        elif config.run_mode == "dumb":
             self.evaluate_dumb()
         else:
             raise ValueError("No valid evaluation method specified.")
@@ -171,7 +172,9 @@ class Population:
                     print(f"An error occurred during genome evaluation: {e}")
 
     def evaluate_single_genome(self, genome):
-        observation = self.environment.reset()
+
+        seed = config.environment_seed + self.generation
+        observation = self.environment.reset(seed=seed)
 
         if isinstance(observation, tuple):
             observation = observation[0]
@@ -182,19 +185,12 @@ class Population:
         done = False
         total_reward = 0
 
-        #while not done:
+        while not done:
             # BipedaWalker-v3
             #action = neural_network.forward(observation)
             #observation, reward, terminated, truncated, _ = self.environment.step(action)
 
-            #total_reward += reward
-
-            #if isinstance(observation, tuple):
-                #observation = observation[0]
-
-            #done = terminated or truncated
-
-        while not done:
+            # MoonLander-v2
             # Get output logits from the network
             output_logits = neural_network.forward(observation)
 
@@ -205,12 +201,16 @@ class Population:
             action = torch.argmax(action_probabilities).cpu().item()
 
             # Step in the environment using the chosen action
-            observation, reward, done, _ = self.environment.step(action)
+            observation, reward, terminated, truncated, _ = self.environment.step(action)
 
             total_reward += reward
 
             if isinstance(observation, tuple):
                 observation = observation[0]
+            
+            #print(f"Action: {action}, Reward: {reward}, Total Reward: {total_reward}")
+
+            done = terminated or truncated
 
         return total_reward
 
@@ -330,19 +330,13 @@ class Population:
         next_gen.update(next_gen_crossovers)
 
         self.genomes = next_gen
+        self.generation += 1
 
         for species_instance in self.species.values():
             species_instance.age += 1
         
         self.purge_species()
     
-    def purge_species(self):
-        # removes from all species all genomes that are not representative nor in population
-        for species_instance in self.species.values():
-            for genome_id in list(species_instance.genomes.keys()):
-                if genome_id not in self.genomes and genome_id != species_instance.representative.id:
-                    del species_instance.genomes[genome_id]
-        
     def carry_over_elites(self, next_gen_elites):
         for species_instance in self.species.values():
 
@@ -382,6 +376,13 @@ class Population:
         if not species_with_genomes:
             raise ValueError("No species available to choose from or no species with genomes.")
         return random.choice(species_with_genomes)
+
+    def purge_species(self):
+        # removes from all species all genomes that are not representative nor in population
+        for species_instance in self.species.values():
+            for genome_id in list(species_instance.genomes.keys()):
+                if genome_id not in self.genomes and genome_id != species_instance.representative.id:
+                    del species_instance.genomes[genome_id]
 
     def save_genomes_to_file(self, file_path):
         with open(file_path, "wb") as file:
