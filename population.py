@@ -159,7 +159,7 @@ class Population:
         else:
             raise ValueError("No valid evaluation method specified.")
 
-        self.relu_offset_fitness()
+        #self.relu_offset_fitness()
 
     def evaluate_serial(self, generation, environment_seed, environment_config):
         for genome in self.genomes.values():
@@ -271,12 +271,12 @@ class Population:
                     f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}", \
                     f"Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
                 )
-                non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
         # count current number of species
-        print(f"\nNumber of species: {len([s for s in self.species.values() if s.genomes or s.elites])},", \
+        print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])},", \
               f"distance threshold: {config.distance_threshold}")
-        print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
-        print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
+        if self.best_genome:
+            print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
+            print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
         #print(f"Best genome neurons id, layer bias and activation function: {[(n.id, n.layer, n.bias, n.activation) for n in self.best_genome.neuron_genes.values()]}")
         #print(f"Best genome connections (from neuron id, to neuron id, weight): {[(c.from_neuron, c.to_neuron, c.weight) for c in self.best_genome.connection_genes.values()]}\n")
         
