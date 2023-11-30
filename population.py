@@ -151,9 +151,9 @@ class Population:
     def evaluate(self):
         print("Run mode:", config.run_mode)
         if config.run_mode == "parallel":
-            self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps, "render_mode": config.render_mode})
+            self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps})
         elif config.run_mode == "serial":
-            self.evaluate_serial(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps, "render_mode": config.render_mode})
+            self.evaluate_serial(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps})
         elif config.run_mode == "dumb":
             self.evaluate_dumb()
         else:
