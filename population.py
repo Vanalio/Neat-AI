@@ -372,7 +372,7 @@ class Population:
     def get_offspring_count(self, species_instance, needed_offspring):
 
         rank = list(self.species.keys()).index(species_instance.id) + 1
-        total_rank_sum = sum(1 / i for i in range(1, len(self.species) + 1))
+        total_rank_sum = sum(1 / (i ** 0.5) for i in range(1, len(self.species) + 1))
 
         offspring_count = int((needed_offspring * (1 / rank)) / total_rank_sum)
 
