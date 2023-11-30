@@ -159,7 +159,7 @@ class Population:
         else:
             raise ValueError("No valid evaluation method specified.")
 
-        #self.relu_offset_fitness()
+        self.relu_offset_fitness()
 
     def evaluate_serial(self, generation, environment_seed, environment_config):
         for genome in self.genomes.values():
