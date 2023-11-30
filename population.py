@@ -170,20 +170,19 @@ class Population:
         for genome in self.genomes.values():
             genome.fitness = 1
 
-    def evaluate_parallel(self):
-        pool = multiprocessing.Pool(config.parallelization)
-        genome_ids = list(self.genomes.keys())
-        results = pool.map(evaluate_genome, [self.genomes[genome_id] for genome_id in genome_ids])
-        pool.close()
-        pool.join()
+    def evaluate_parallel(self, generation, environment_seed, environment_config):
+        with multiprocessing.Pool(config.parallelization) as pool:
+            # Prepare arguments for each genome
+            args = [(genome, generation, environment_seed, environment_config) for genome in self.genomes.values()]
 
-        for genome_id, fitness in results:
-            if isinstance(fitness, str) and fitness.startswith("Error"):
-                print(f"An error occurred during genome evaluation for genome {genome_id}: {fitness}")
-            else:
+            # Map the function across the genomes
+            results = pool.starmap(self.evaluate_genome, args)
+
+            # Process the results to update fitness values
+            for genome_id, fitness in results:
                 self.genomes[genome_id].fitness = fitness
 
-    def evaluate_genome(genome, generation, environment_seed, environment_config):
+    def evaluate_genome(self, genome, generation, environment_seed, environment_config):
         seed = environment_seed + generation
         environment = gym.make("LunarLander-v2", **environment_config)
         observation = environment.reset(seed=seed)
