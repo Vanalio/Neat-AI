@@ -174,21 +174,14 @@ class Genome:
                         )
 
             elif gene1 or gene2:
-                if more_fit_parent:
+                # If only one parent has the gene (disjoint or excess)
+                parent_gene = gene1 if gene1 else gene2
+                parent_with_gene = self if gene1 else other_genome
 
-                    parent_gene = gene1 if more_fit_parent == self else gene2
-                    offspring_gene = (
-                        parent_gene.copy(retain_innovation_number=True)
-                        if parent_gene
-                        else None
-                    )
-                else:
-
-                    offspring_gene = random.choice([gene1, gene2])
-                    if offspring_gene:
-                        offspring_gene = offspring_gene.copy(
-                            retain_innovation_number=True
-                        )
+                # Inherit the gene only if the parent with the gene is the fittest
+                if more_fit_parent is None or parent_with_gene == more_fit_parent:
+                    offspring_gene = parent_gene.copy(retain_innovation_number=True)
+                    offspring.connection_genes[offspring_gene.id] = offspring_gene
 
             if offspring_gene:
                 offspring.connection_genes[offspring_gene.id] = offspring_gene

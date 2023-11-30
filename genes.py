@@ -1,6 +1,7 @@
 import random
 
-from managers import IdManager, InnovationManager
+from torch_activation_functions import ActivationFunctions as activation_functions
+from managers import IdManager
 from config import Config
 
 config = Config("config.ini", "DEFAULT")
@@ -14,7 +15,8 @@ class NeuronGene:
             self.activation = config.initial_output_activation
             self.bias = random.uniform(*config.bias_init_range)
         elif layer == "hidden":
-            self.activation = config.initial_hidden_activation
+            #self.activation = config.initial_hidden_activation
+            self.activation = random.choice(activation_functions.get_available_functions())
             self.bias = random.uniform(*config.bias_init_range)
         else:
             self.activation = "identity"

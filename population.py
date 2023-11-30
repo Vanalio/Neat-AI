@@ -144,7 +144,10 @@ class Population:
             action = torch.argmax(action_probabilities).cpu().item()
             observation, _, terminated, truncated, _ = test_environment.step(action)
 
-            done = terminated or truncated
+            # print if terminated or truncated
+            if terminated or truncated:
+                print("terminated:", terminated, "truncated:", truncated)
+                done = True
 
         test_environment.close()
 
