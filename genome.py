@@ -23,7 +23,7 @@ class Genome:
         self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
         self.add_neurons("hidden", count=config.hidden_neurons, neuron_ids=None)
 
-        initial_connections = int(self.max_new_connections() * config.initial_connections_quota)
+        initial_connections = int(self.max_total_connections() * config.initial_connections_quota)
         self.add_connections(count=initial_connections)
 
         return self
@@ -36,29 +36,31 @@ class Genome:
             new_neuron = NeuronGene(layer, neuron_id)
             self.neuron_genes[neuron_id] = new_neuron
 
-    def max_new_connections(self):
+    def max_total_connections(self):
         enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
+        print(f"Enabled hidden neurons: {enabled_hidden_neurons}")
         # Count current connections
         current_connections = len(self.connection_genes)
-        max_new_connections = (enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons)) - current_connections
+        print(f"Current connections: {current_connections}")
+        max_total_connections = (enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons))
+        print(f"Max total connections: {max_total_connections}")
 
-        return max_new_connections
+        return max_total_connections
 
     def max_attempts(self):
-        max_attempts = int(self.max_new_connections() * config.max_to_attempts_factor)
+        max_attempts = int(self.max_total_connections() * config.max_to_attempts_factor)
+        print(f"Max attempts: {max_attempts}")
 
         return max_attempts
 
 
     def add_connections(self, from_layer=None, to_layer=None, count=1):
-
+        print(f"Adding connection to genome {self.id} from layer {from_layer} to layer {to_layer}")
         attempts = 0
         added_connections = 0
         max_attempts = self.max_attempts()
 
         while added_connections != count and attempts < max_attempts:
-            #print(f"Added connections: {added_connections} of {count}")
-            #print(f"Attempt {attempts} of {max_attempts}")
 
             from_neurons = []
             to_neurons = []
@@ -86,12 +88,12 @@ class Genome:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
                 self.connection_genes[new_connection.id] = new_connection
                 added_connections += 1
-                #print(f"Added connections: {added_connections} of {count}")
-            #else:
-                #print(f"Connection already exists between {from_neuron.id} and {to_neuron.id}")
+                print(f"Added connections: {added_connections} of {count}")
+            else:
+                print(f"Connection already exists between {from_neuron.id} and {to_neuron.id}")
 
             attempts += 1
-            #print(f"Attempt {attempts} of {max_attempts}")
+            print(f"Attempt {attempts} of {max_attempts}")
 
     def crossover(self, other_genome):
         offspring = Genome()
