@@ -1,13 +1,9 @@
-from calendar import c
+import multiprocessing
 import random
 import pickle
-import re
 import gymnasium as gym
-from matplotlib.pyplot import step
-from sympy import N
 import torch
 import torch.nn.functional as F
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from managers import IdManager
 from genome import Genome
@@ -153,27 +149,21 @@ class Population:
         self.environment.close()
 
     def evaluate(self):
-
-        self.environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode=config.render_mode)
-                
         print("Run mode:", config.run_mode)
         if config.run_mode == "parallel":
-            self.evaluate_parallel()
+            self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps, "render_mode": config.render_mode})
         elif config.run_mode == "serial":
-            self.evaluate_serial()
+            self.evaluate_serial(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps, "render_mode": config.render_mode})
         elif config.run_mode == "dumb":
             self.evaluate_dumb()
         else:
             raise ValueError("No valid evaluation method specified.")
 
-        self.environment.close()
-
         self.relu_offset_fitness()
 
-    def evaluate_serial(self):
-
+    def evaluate_serial(self, generation, environment_seed, environment_config):
         for genome in self.genomes.values():
-            genome.fitness = self.evaluate_single_genome(genome)
+            genome.fitness = self.evaluate_genome(genome, generation, environment_seed, environment_config)
 
     def evaluate_dumb(self):
             
@@ -181,21 +171,22 @@ class Population:
             genome.fitness = 1
 
     def evaluate_parallel(self):
-        with ThreadPoolExecutor(max_workers=config.parallelization) as executor:
-            futures = {executor.submit(self.evaluate_single_genome, genome): genome for genome in self.genomes.values()}
+        pool = multiprocessing.Pool(config.parallelization)
+        genome_ids = list(self.genomes.keys())
+        results = pool.map(evaluate_genome, [self.genomes[genome_id] for genome_id in genome_ids])
+        pool.close()
+        pool.join()
 
-            for future in as_completed(futures):
-                genome = futures[future]
-                try:
-                    fitness = future.result()
-                    genome.fitness = fitness
-                except Exception as e:
-                    print(f"An error occurred during genome evaluation: {e}")
+        for genome_id, fitness in results:
+            if isinstance(fitness, str) and fitness.startswith("Error"):
+                print(f"An error occurred during genome evaluation for genome {genome_id}: {fitness}")
+            else:
+                self.genomes[genome_id].fitness = fitness
 
-    def evaluate_single_genome(self, genome):
-
-        seed = config.environment_seed + self.generation
-        observation = self.environment.reset(seed=seed)
+    def evaluate_genome(genome, generation, environment_seed, environment_config):
+        seed = environment_seed + generation
+        environment = gym.make("LunarLander-v2", **environment_config)
+        observation = environment.reset(seed=seed)
 
         if isinstance(observation, tuple):
             observation = observation[0]
@@ -207,29 +198,19 @@ class Population:
         total_reward = 0
 
         while not done:
-
-            # MoonLander-v2
-            # Get output logits from the network
             output_logits = neural_network.forward(observation)
-
-            # Apply softmax to convert logits to probabilities (still on GPU)
             action_probabilities = F.softmax(output_logits, dim=0)
-
-            # Choose the action with the highest probability and transfer to CPU
             action = torch.argmax(action_probabilities).cpu().item()
 
-            # Step in the environment using the chosen action
-            observation, reward, terminated, truncated, _ = self.environment.step(action)
-
+            observation, reward, terminated, truncated, _ = environment.step(action)
             total_reward += reward
 
             if isinstance(observation, tuple):
                 observation = observation[0]
-            
-            #print(f"Action: {action}, Reward: {reward}, Total Reward: {total_reward}")
 
             done = terminated or truncated
 
+        environment.close()
         return total_reward
 
     def relu_offset_fitness(self):
