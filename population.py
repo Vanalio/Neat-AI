@@ -146,7 +146,7 @@ class Population:
 
             done = terminated or truncated
 
-        self.environment.close()
+        test_environment.close()
 
     def evaluate(self):
         print("Run mode:", config.run_mode)
@@ -163,7 +163,7 @@ class Population:
 
     def evaluate_serial(self, generation, environment_seed, environment_config):
         for genome in self.genomes.values():
-            genome.fitness = self.evaluate_genome(genome, generation, environment_seed, environment_config)
+            _, genome.fitness = self.evaluate_genome(genome, generation, environment_seed, environment_config)
 
     def evaluate_dumb(self):
             
@@ -210,7 +210,7 @@ class Population:
             done = terminated or truncated
 
         environment.close()
-        return total_reward
+        return genome.id, total_reward
 
     def relu_offset_fitness(self):
 

@@ -1,4 +1,6 @@
 from population import Population
+import multiprocessing  
+
 from config import Config
 
 config = Config("config.ini", "DEFAULT")
@@ -22,4 +24,5 @@ def neat():
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
     neat()
