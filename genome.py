@@ -55,7 +55,7 @@ class Genome:
 
 
     def add_connections(self, from_layer=None, to_layer=None, count=1):
-        print(f"Adding connection to genome {self.id} from layer {from_layer} to layer {to_layer}")
+        #print(f"Adding connection to genome {self.id} from layer {from_layer} to layer {to_layer}")
         attempts = 0
         added_connections = 0
         max_attempts = self.max_attempts()
@@ -89,7 +89,7 @@ class Genome:
                 self.connection_genes[new_connection.id] = new_connection
                 added_connections += 1
                 #print(f"Added connections: {added_connections} of {count}")
-            else:
+            #else:
                 #print(f"Connection already exists between {from_neuron.id} and {to_neuron.id}")
 
             attempts += 1
