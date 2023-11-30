@@ -1,4 +1,5 @@
 import random
+import pickle
 
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
@@ -432,3 +433,11 @@ class Genome:
         #print(f"Distance: {distance}")
 
         return distance
+
+    def save_to_file(genome, filename):
+        with open(filename, 'wb') as file:
+            pickle.dump(genome, file)
+
+    def load_from_file(filename):
+        with open(filename, 'rb') as file:
+            return pickle.load(file)

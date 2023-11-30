@@ -82,6 +82,8 @@ class Population:
         self.prune()
         print("Forming next generation...")
         self.form_next_generation()
+        print("Rendering best genome...")
+        self.render_best_genome()
 
     def speciate(self):
         def find_species_for_genome(genome):
@@ -128,6 +130,28 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
+    def render_best_genome(self):
+        test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
+        if self.best_genome is None:
+            print("No best genome available to render.")
+            return
+        observation = test_environment.reset()
+        neural_network = NeuralNetwork(self.best_genome)
+        neural_network.reset_states()
+        done = False
+        while not done:
+            if isinstance(observation, tuple):
+                observation = observation[0]
+
+            output_logits = neural_network.forward(observation)
+            action_probabilities = F.softmax(output_logits, dim=0)
+            action = torch.argmax(action_probabilities).cpu().item()
+            observation, _, terminated, truncated, _ = test_environment.step(action)
+
+            done = terminated or truncated
+
+        self.environment.close()
+
     def evaluate(self):
 
         self.environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode=config.render_mode)
@@ -141,6 +165,8 @@ class Population:
             self.evaluate_dumb()
         else:
             raise ValueError("No valid evaluation method specified.")
+
+        self.environment.close()
 
         self.relu_offset_fitness()
 
@@ -250,6 +276,10 @@ class Population:
             if self.max_fitness is None or genome.fitness > self.max_fitness:
                 self.max_fitness = genome.fitness
                 self.best_genome = genome
+        
+        # if best genome exists, save it to file
+        if self.best_genome:
+            self.best_genome.save_to_file(f"saves/best_genome_{self.generation}.pkl")
 
         return self.best_genome
 
@@ -267,9 +297,8 @@ class Population:
               f"distance threshold: {config.distance_threshold}")
         print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
         print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
-        
-        print(f"Best genome neurons id, layer and activation function: {[(n.id, n.layer, n.activation) for n in self.best_genome.neuron_genes.values()]}")
-        print(f"Best genome connections (from neuron id, to neuron id, weight): {[(c.from_neuron, c.to_neuron, c.weight) for c in self.best_genome.connection_genes.values()]}")
+        #print(f"Best genome neurons id, layer bias and activation function: {[(n.id, n.layer, n.bias, n.activation) for n in self.best_genome.neuron_genes.values()]}")
+        #print(f"Best genome connections (from neuron id, to neuron id, weight): {[(c.from_neuron, c.to_neuron, c.weight) for c in self.best_genome.connection_genes.values()]}\n")
         
     def prune(self):
         self.prune_genomes_from_species()
