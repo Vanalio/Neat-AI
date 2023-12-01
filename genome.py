@@ -97,34 +97,19 @@ class Genome:
     def crossover(self, other_genome):
         offspring = Genome()
 
-        input_neuron_ids = [
-            neuron_id
-            for neuron_id, neuron in self.neuron_genes.items()
-            if neuron.layer == "input"
-        ]
+        input_neuron_ids = [neuron_id for neuron_id, neuron in self.neuron_genes.items() if neuron.layer == "input"]
         for neuron_id in input_neuron_ids:
             offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy(keep_id=True)
 
-        output_neuron_ids = [
-            neuron_id
-            for neuron_id, neuron in self.neuron_genes.items()
-            if neuron.layer == "output"
-        ]
+        output_neuron_ids = [neuron_id for neuron_id, neuron in self.neuron_genes.items() if neuron.layer == "output"]
         for neuron_id in output_neuron_ids:
             if random.random() < 0.5:
                 offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy(keep_id=True)
             else:
-                offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[
-                    neuron_id
-                ].copy(keep_id=True)
+                offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy(keep_id=True)
 
-        genes1 = {
-            gene.innovation_number: gene for gene in self.connection_genes.values()
-        }
-        genes2 = {
-            gene.innovation_number: gene
-            for gene in other_genome.connection_genes.values()
-        }
+        genes1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
+        genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
         all_innovations = set(genes1.keys()) | set(genes2.keys())
 
         if self.fitness is None and other_genome.fitness is None:
@@ -134,13 +119,7 @@ class Genome:
         elif other_genome.fitness is None:
             more_fit_parent = self
         else:
-            more_fit_parent = (
-                self
-                if self.fitness > other_genome.fitness
-                else other_genome
-                if self.fitness < other_genome.fitness
-                else None
-            )
+            more_fit_parent = (self if self.fitness > other_genome.fitness else other_genome if self.fitness < other_genome.fitness else None)
 
         for innovation_number in all_innovations:
             gene1 = genes1.get(innovation_number)
@@ -185,7 +164,9 @@ class Genome:
             if offspring_gene:
                 offspring.connection_genes[offspring_gene.id] = offspring_gene
 
+        hidden_neuron_id_mapping = {}
         hidden_neuron_ids = set()
+
         for conn_gene in offspring.connection_genes.values():
             from_neuron_id, to_neuron_id = conn_gene.from_neuron, conn_gene.to_neuron
 
@@ -223,6 +204,13 @@ class Genome:
                 offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[
                     neuron_id
                 ].copy()
+
+        # Update connection genes with new hidden neuron IDs
+        for conn_gene in offspring.connection_genes.values():
+            if conn_gene.from_neuron in hidden_neuron_id_mapping:
+                conn_gene.from_neuron = hidden_neuron_id_mapping[conn_gene.from_neuron]
+            if conn_gene.to_neuron in hidden_neuron_id_mapping:
+                conn_gene.to_neuron = hidden_neuron_id_mapping[conn_gene.to_neuron]
 
         return offspring
 
@@ -281,10 +269,6 @@ class Genome:
 
         new_connection1.weight = 1
         new_connection2.weight = gene_to_split.weight
-
-        #print(
-        #    f"Added neuron {new_neuron.id} to genome {self.id} and split connection {gene_to_split.id} into connections {new_connection1.id} and {new_connection2.id}"
-        #)
 
     def mutate_weight(self):
 
@@ -354,8 +338,10 @@ class Genome:
     def copy(self):
         new_genome = Genome()
 
-        new_genome.neuron_genes = {neuron_id: gene.copy() for neuron_id, gene in self.neuron_genes.items()}
-        new_genome.connection_genes = {conn_id: gene.copy() for conn_id, gene in self.connection_genes.items()}
+        # use NeuronGene.copy(keep_id=) to copy the input and output
+        # neurons with keep_id=True and hidden neurons with keep_id=False
+        new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=(gene.layer != "hidden")) for neuron_id, gene in self.neuron_genes.items()}
+        new_genome.connection_genes = {conn_id: gene.copy(keep_innovation_number=True) for conn_id, gene in self.connection_genes.items()}
         new_genome.fitness = self.fitness
         new_genome.species_id = self.species_id
 
