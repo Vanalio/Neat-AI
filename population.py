@@ -79,7 +79,7 @@ class Population:
         print("Forming next generation...")
         self.form_next_generation()
         print("Rendering best genome...")
-        self.render_best_genome()
+        self.render_genome()
 
     def speciate(self):
         def find_species_for_genome(genome):
@@ -126,11 +126,16 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
-    def render_best_genome(self):
+    def render_genome(self, genome=None):
         test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
-        if self.best_genome is None:
-            print("No best genome available to render.")
+        
+        # Use the provided genome if available, otherwise use the best genome
+        render_genome = genome if genome is not None else self.best_genome
+
+        if render_genome is None:
+            print("No genome available to render.")
             return
+
         observation = test_environment.reset()
         neural_network = NeuralNetwork(self.best_genome)
         neural_network.reset_states()

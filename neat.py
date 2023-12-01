@@ -1,5 +1,10 @@
-from population import Population
+import argparse
 import multiprocessing  
+import matplotlib.pyplot as plt
+
+from population import Population
+from genome import Genome
+from visualization import visualize_genome
 
 from config import Config
 
@@ -25,4 +30,21 @@ def neat():
 
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
-    neat()
+    parser.add_argument("--visualize", help="Visualize a saved genome file", type=str)
+    parser.add_argument("--test", help="Test and render a specific genome file", type=str)
+    args = parser.parse_args()
+
+    if args.visualize:
+        # Load and visualize the genome
+        genome = load_from_file(args.visualize)
+        fig, ax = plt.subplots()
+        visualize_genome(genome, ax)
+        plt.show()
+    elif args.test:
+        # Load and test/render the specific genome
+        genome = load_from_file(args.test)
+        population = Population(first=True)  # Or however you normally initialize Population
+        population.render_genome(genome)
+    else:
+        # Run the NEAT algorithm normally
+        neat()
