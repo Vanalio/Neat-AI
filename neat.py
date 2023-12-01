@@ -22,10 +22,10 @@ def neat():
         print("\n#############################################")
         print(f"# GENERATION: {population.generation}")
 
-        best_genome = population.evolve()
+        population.evolve()
 
-        total_reward = population.test_genome(best_genome)
-        visualizer.visualize_genome(best_genome)
+        total_reward = population.test_genome(population.best_genome)
+        visualizer.visualize_genome(population.best_genome)
         visualizer.plot_rewards(generation, total_reward)
 
         if generation % config.population_save_interval == 0:

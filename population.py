@@ -72,14 +72,12 @@ class Population:
         print("Speciating...")
         self.speciate()
         print("Sort & Stats...")
-        best_genome = self.sort_and_stats()
+        self.sort_and_stats()
         self.print_population_info()
         print("Pruning...")
         self.prune()
         print("Forming next generation...")
         self.form_next_generation()
-
-        return best_genome
 
     def speciate(self):
         def find_species_for_genome(genome):
