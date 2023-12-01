@@ -103,7 +103,7 @@ class Genome:
             if neuron.layer == "input"
         ]
         for neuron_id in input_neuron_ids:
-            offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
+            offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy(keep_id=True)
 
         output_neuron_ids = [
             neuron_id
@@ -112,11 +112,11 @@ class Genome:
         ]
         for neuron_id in output_neuron_ids:
             if random.random() < 0.5:
-                offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
+                offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy(keep_id=True)
             else:
                 offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[
                     neuron_id
-                ].copy()
+                ].copy(keep_id=True)
 
         genes1 = {
             gene.innovation_number: gene for gene in self.connection_genes.values()
@@ -152,7 +152,7 @@ class Genome:
                 if more_fit_parent:
 
                     parent_gene = gene1 if more_fit_parent == self else gene2
-                    offspring_gene = parent_gene.copy(retain_innovation_number=True)
+                    offspring_gene = parent_gene.copy(keep_innovation_number=True)
                 else:
 
                     if not gene1.enabled or not gene2.enabled:
@@ -160,7 +160,7 @@ class Genome:
                             config.matching_disabled_connection_chance
                         )
                         offspring_gene = random.choice([gene1, gene2]).copy(
-                            retain_innovation_number=True
+                            keep_innovation_number=True
                         )
                         offspring_gene.enabled = (
                             False
@@ -169,7 +169,7 @@ class Genome:
                         )
                     else:
                         offspring_gene = random.choice([gene1, gene2]).copy(
-                            retain_innovation_number=True
+                            keep_innovation_number=True
                         )
 
             elif gene1 or gene2:
@@ -179,7 +179,7 @@ class Genome:
 
                 # Inherit the gene only if the parent with the gene is the fittest
                 if more_fit_parent is None or parent_with_gene == more_fit_parent:
-                    offspring_gene = parent_gene.copy(retain_innovation_number=True)
+                    offspring_gene = parent_gene.copy(keep_innovation_number=True)
                     offspring.connection_genes[offspring_gene.id] = offspring_gene
 
             if offspring_gene:

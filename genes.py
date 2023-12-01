@@ -6,7 +6,6 @@ from config import Config
 
 config = Config("config.ini", "DEFAULT")
 
-
 class NeuronGene:
     def __init__(self, layer, neuron_id=None):
         self.id = neuron_id if neuron_id is not None else IdManager.get_new_id()
@@ -23,15 +22,14 @@ class NeuronGene:
             self.bias = 0
         self.enabled = True
 
-    def copy(self):
+    def copy(self, keep_id=False):
         new_gene = NeuronGene(self.layer)
         new_gene.activation = self.activation
         new_gene.bias = self.bias
         new_gene.enabled = self.enabled
+        new_gene.id = (self.id if keep_id else new_gene.id)
 
         return new_gene
-
-
 class ConnectionGene:
     def __init__(self, from_neuron, to_neuron, connection_id=None):
         self.id = connection_id if connection_id is not None else IdManager.get_new_id()
@@ -41,14 +39,10 @@ class ConnectionGene:
         self.weight = random.uniform(*config.weight_init_range)
         self.enabled = True
 
-    def copy(self, retain_innovation_number=True):
+    def copy(self, keep_innovation_number=True):
         new_gene = ConnectionGene(self.from_neuron, self.to_neuron, self.id)
         new_gene.weight = self.weight
         new_gene.enabled = self.enabled
-        new_gene.innovation_number = (
-            self.innovation_number
-            if retain_innovation_number
-            else InnovationManager.get_new_innovation()
-        )
+        new_gene.innovation_number = (self.innovation_number if keep_innovation_number else InnovationManager.get_new_innovation())
 
         return new_gene
