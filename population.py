@@ -72,14 +72,14 @@ class Population:
         print("Speciating...")
         self.speciate()
         print("Sort & Stats...")
-        self.sort_and_stats()
+        best_genome = self.sort_and_stats()
         self.print_population_info()
         print("Pruning...")
         self.prune()
         print("Forming next generation...")
         self.form_next_generation()
-        print("Rendering best genome...")
-        self.test_genome()
+
+        return best_genome
 
     def speciate(self):
         def find_species_for_genome(genome):
@@ -141,7 +141,7 @@ class Population:
         neural_network.reset_states()
         done = False
         total_reward = 0
-        
+
         while not done:
             if isinstance(observation, tuple):
                 observation = observation[0]
@@ -162,6 +162,7 @@ class Population:
         test_environment.close()
 
         print("Total reward:", total_reward)
+        return total_reward
         
     def evaluate(self):
         print("Run mode:", config.run_mode)

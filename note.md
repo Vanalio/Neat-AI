@@ -2,14 +2,12 @@
 
 ## FIXME
 
-- move render genome to genome class and fix it
+- move render genome to visualize class and fix it
 
 ## CHECK
 
-- crossover selection of parents probabnility
-- crossover split?
-- disabled genes are correctly inherited
-- what happens to neurons after crossover (too many hidden neurons respect to connections)
+- all the returns (redundant, mixed to side effects, computing them when not needed because an attribute is present in self or elsewhere, etc.)
+- what happens to neurons (copied, cloned). when inherited or muted, shared?
 
 ## ADD
 
@@ -17,7 +15,3 @@
 - implement generations without improvement
 - implement interspecies mating
 - ignore # in the config file
-
-## ChatGPT
-
-### Problems

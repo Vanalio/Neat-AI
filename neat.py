@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from population import Population
 from genome import Genome
-from visualization import visualize_genome
+from visualization import NeatVisualizer
 
 from config import Config
 
@@ -12,6 +12,8 @@ config = Config("config.ini", "DEFAULT")
 
 
 def neat():
+    visualizer = NeatVisualizer()
+    
     print("\n#############################################")
     print(f"# GENERATION: 0")
     population = Population(first=True)
@@ -20,7 +22,11 @@ def neat():
         print("\n#############################################")
         print(f"# GENERATION: {population.generation}")
 
-        population.evolve()
+        best_genome = population.evolve()
+
+        total_reward = population.test_genome(best_genome)
+        visualizer.visualize_genome(best_genome)
+        visualizer.plot_rewards(generation, total_reward)
 
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"saves/population_gen_{generation}.pkl")
