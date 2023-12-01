@@ -24,7 +24,7 @@ class NeuronGene:
         self.enabled = True
 
     def copy(self):
-        new_gene = NeuronGene(self.layer, self.id)
+        new_gene = NeuronGene(self.layer)
         new_gene.activation = self.activation
         new_gene.bias = self.bias
         new_gene.enabled = self.enabled
