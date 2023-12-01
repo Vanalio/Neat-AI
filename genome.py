@@ -338,8 +338,6 @@ class Genome:
     def copy(self):
         new_genome = Genome()
 
-        # use NeuronGene.copy(keep_id=) to copy the input and output
-        # neurons with keep_id=True and hidden neurons with keep_id=False
         new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=(gene.layer != "hidden")) for neuron_id, gene in self.neuron_genes.items()}
         new_genome.connection_genes = {conn_id: gene.copy(keep_innovation_number=True) for conn_id, gene in self.connection_genes.items()}
         new_genome.fitness = self.fitness
@@ -415,9 +413,9 @@ class Genome:
         return distance
 
     def save_to_file(genome, filename):
-        with open(filename, 'wb') as file:
+        with open(filename, "wb") as file:
             pickle.dump(genome, file)
 
     def load_from_file(filename):
-        with open(filename, 'rb') as file:
+        with open(filename, "rb") as file:
             return pickle.load(file)

@@ -8,7 +8,7 @@ class Config:
         self.parser.read(filename)
         if section not in self.parser:
             raise ValueError(
-                f'Section "{section}" not found in the configuration file.'
+                f"Section \"{section}\" not found in the configuration file."
             )
         self.load_config(section)
 

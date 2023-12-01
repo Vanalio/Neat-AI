@@ -11,7 +11,7 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
 
         # Define device based on GPU availability
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Extract neurons from genome and create neuron ID to index mapping
         self.neurons = {neuron.id: neuron for neuron in genome.neuron_genes.values()}
@@ -36,7 +36,7 @@ class NeuralNetwork(nn.Module):
 
         # Index neurons by type and store their activation functions
         self.layer_activation_functions = {}
-        self.layer_indices = {'input': [], 'hidden': [], 'output': []}
+        self.layer_indices = {"input": [], "hidden": [], "output": []}
 
         for neuron_id, neuron in self.neurons.items():
             neuron_index = self.neuron_id_to_index[neuron_id]
@@ -45,7 +45,7 @@ class NeuralNetwork(nn.Module):
                 # Retrieve the activation function using getattr
                 activation_func = getattr(activation_functions, neuron.activation, None)
                 if activation_func is None:
-                    raise ValueError(f"Activation function '{neuron.activation}' not found in ActivationFunctions class")
+                    raise ValueError(f"Activation function \"{neuron.activation}\" not found in ActivationFunctions class")
                 self.layer_activation_functions[neuron.layer] = activation_func
 
         # Refractory factor
@@ -53,11 +53,11 @@ class NeuralNetwork(nn.Module):
 
     def forward(self, input_values):
         # Apply refractory factor to hidden states
-        hidden_indices = self.layer_indices['hidden']
+        hidden_indices = self.layer_indices["hidden"]
         self.neuron_states[hidden_indices] *= self.refractory_factor
 
         # Assign input values to input neurons
-        input_indices = self.layer_indices['input']
+        input_indices = self.layer_indices["input"]
         input_tensor = torch.tensor(input_values, dtype=torch.float32).to(self.device)
         self.neuron_states[input_indices] = input_tensor
 
@@ -66,12 +66,12 @@ class NeuralNetwork(nn.Module):
 
         # Apply activation functions by layer
         for layer, indices in self.layer_indices.items():
-            if layer != 'input':  # Skip input layer for activations
+            if layer != "input":  # Skip input layer for activations
                 activation_func = self.layer_activation_functions[layer]
                 self.neuron_states[indices] = activation_func(total_input[indices])
 
         # Extract and return output states
-        output_indices = self.layer_indices['output']
+        output_indices = self.layer_indices["output"]
         return self.neuron_states[output_indices]
 
     def reset_states(self):

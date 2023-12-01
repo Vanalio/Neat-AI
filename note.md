@@ -7,7 +7,6 @@
 ## CHECK
 
 - all the returns (redundant, mixed to side effects, computing them when not needed because an attribute is present in self or elsewhere, etc.)
-- what happens to neurons (copied, cloned). when inherited or muted, shared?
 
 ## ADD
 

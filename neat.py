@@ -14,8 +14,8 @@ config = Config("config.ini", "DEFAULT")
 def neat():
     
     print("\n#############################################")
-    print(f"# GENERATION: 0")
-    population = Population(first=True)
+    print(f"# Initial Population")
+    population = Population(initial=True)
 
     for generation in range(config.generations):
         print("\n#############################################")
@@ -23,9 +23,9 @@ def neat():
 
         population.evolve()
 
-        total_reward = population.test_genome(population.best_genome)
+        best_genome_reward = population.test_and_render_genome(population.best_genome)
         visualizer.visualize_genome(population.best_genome)
-        visualizer.plot_rewards(generation, total_reward)
+        visualizer.plot_rewards(generation, best_genome_reward)
 
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"saves/population_gen_{generation}.pkl")
@@ -34,7 +34,7 @@ def neat():
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method('spawn')
+    multiprocessing.set_start_method("spawn")
 
     visualizer = NeatVisualizer()    
 
@@ -46,14 +46,16 @@ if __name__ == "__main__":
     if args.visualize:
         # Load and visualize the genome
         genome = Genome.load_from_file(args.visualize)
-        fig, ax = plt.subplots()
-        visualize_genome(genome, ax)
-        plt.show()
+        visualizer.visualize_genome(genome)
+
     elif args.test:
         # Load and test/render the specific genome
         genome = Genome.load_from_file(args.test)
-        population = Population(first=False)
-        population.test_genome(genome)
+        # add genome to a new population
+        population = Population(initial=False)
+        population.genomes.append(genome)
+        population.test_and_render_genome(genome)
+
     else:
         # Run the NEAT algorithm normally
         neat()

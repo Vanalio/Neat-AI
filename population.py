@@ -16,16 +16,16 @@ config = Config("config.ini", "DEFAULT")
 
 
 class Population:
-    def __init__(self, first=False):
+    def __init__(self, initial=False):
         self.genomes = {}
         self.species = {}
-        self.generation = None
+        self.generation = 0
         self.max_fitness = None
         self.best_genome = None
         self.environment = None
-        if first:
+        if initial:
             self._initialize_neuron_ids()
-            self._first_population()
+            self._initial_population()
             self._initial_speciation()
 
     def _initialize_neuron_ids(self):
@@ -33,11 +33,11 @@ class Population:
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
         self._print_neuron_ids()
         
-    def _first_population(self):
+    def _initial_population(self):
         for _ in range(config.population_size):
             genome = Genome().create(self.input_ids, self.output_ids)
             self.genomes[genome.id] = genome
-            self.generation = 1
+            self.generation = 0
 
     def _print_neuron_ids(self):
         print("Input Neuron IDs:", self.input_ids)
@@ -124,7 +124,7 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
-    def test_genome(self, genome=None):
+    def test_and_render_genome(self, genome=None):
         test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
         
         # Use the provided genome if available, otherwise use the best genome

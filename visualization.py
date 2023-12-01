@@ -57,7 +57,7 @@ class NeatVisualizer:
         generations, rewards = zip(*self.reward_data)
 
         self.ax[1].cla()  # Clear the current plot
-        self.ax[1].plot(generations, rewards, '-o')
+        self.ax[1].plot(generations, rewards, "-o")
         self.ax[1].set_title("Total Rewards over Generations")
         self.ax[1].set_xlabel("Generation")
         self.ax[1].set_ylabel("Total Reward")
