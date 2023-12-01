@@ -2,10 +2,11 @@
 
 ## FIXME
 
-- crossover count to much wheighted towards high ranked
+- move render genome to genome class
 
 ## CHECK
 
+- crossover selection of parents probabnility
 - crossover split?
 - disabled genes are correctly inherited
 - what happens to neurons after crossover (too many hidden neurons respect to connections)

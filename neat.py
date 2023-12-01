@@ -40,14 +40,14 @@ if __name__ == "__main__":
 
     if args.visualize:
         # Load and visualize the genome
-        genome = load_from_file(args.visualize)
+        genome = Genome.load_from_file(args.visualize)
         fig, ax = plt.subplots()
         visualize_genome(genome, ax)
         plt.show()
     elif args.test:
         # Load and test/render the specific genome
-        genome = load_from_file(args.test)
-        population = Population(first=True)  # Or however you normally initialize Population
+        genome = Genome.load_from_file(args.test)
+        population = Population(first=False)
         population.render_genome(genome)
     else:
         # Run the NEAT algorithm normally
