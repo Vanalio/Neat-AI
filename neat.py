@@ -48,7 +48,7 @@ if __name__ == "__main__":
         # Load and test/render the specific genome
         genome = Genome.load_from_file(args.test)
         population = Population(first=False)
-        population.render_genome(genome)
+        population.test_genome(genome)
     else:
         # Run the NEAT algorithm normally
         neat()

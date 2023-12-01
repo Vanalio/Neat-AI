@@ -2,7 +2,7 @@
 
 ## FIXME
 
-- move render genome to genome class
+- move render genome to genome class and fix it
 
 ## CHECK
 

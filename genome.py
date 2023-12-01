@@ -18,7 +18,7 @@ class Genome:
         self.fitness = None
         self.species_id = None
 
-    def create(self, input_ids, output_ids, hidden_ids):
+    def create(self, input_ids, output_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
         self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
         self.add_neurons("hidden", count=config.hidden_neurons, neuron_ids=None)
@@ -52,7 +52,6 @@ class Genome:
         #print(f"Max attempts: {max_attempts}")
 
         return max_attempts
-
 
     def add_connections(self, from_layer=None, to_layer=None, count=1):
         #print(f"Adding connection to genome {self.id} from layer {from_layer} to layer {to_layer}")

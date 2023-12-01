@@ -35,7 +35,7 @@ class Population:
         
     def _first_population(self):
         for _ in range(config.population_size):
-            genome = Genome().create(self.input_ids, self.output_ids, hidden_ids=None)
+            genome = Genome().create(self.input_ids, self.output_ids)
             self.genomes[genome.id] = genome
             self.generation = 1
 
@@ -79,7 +79,7 @@ class Population:
         print("Forming next generation...")
         self.form_next_generation()
         print("Rendering best genome...")
-        self.render_genome()
+        self.test_genome()
 
     def speciate(self):
         def find_species_for_genome(genome):
@@ -126,13 +126,13 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
-    def render_genome(self, genome=None):
+    def test_genome(self, genome=None):
         test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
         
         # Use the provided genome if available, otherwise use the best genome
-        render_genome = genome if genome is not None else self.best_genome
+        test_genome = genome if genome is not None else self.best_genome
 
-        if render_genome is None:
+        if test_genome is None:
             print("No genome available to render.")
             return
 
@@ -140,6 +140,8 @@ class Population:
         neural_network = NeuralNetwork(self.best_genome)
         neural_network.reset_states()
         done = False
+        total_reward = 0
+        
         while not done:
             if isinstance(observation, tuple):
                 observation = observation[0]
@@ -147,15 +149,20 @@ class Population:
             output_logits = neural_network.forward(observation)
             action_probabilities = F.softmax(output_logits, dim=0)
             action = torch.argmax(action_probabilities).cpu().item()
-            observation, _, terminated, truncated, _ = test_environment.step(action)
+            observation, reward, terminated, truncated, _ = test_environment.step(action)
+            total_reward += reward
 
-            # print if terminated or truncated
-            if terminated or truncated:
-                print("terminated:", terminated, "truncated:", truncated)
-                done = True
+            if terminated:
+                print("Terminated")
+            elif truncated:
+                print("Truncated")
 
+            done = terminated or truncated
+        
         test_environment.close()
 
+        print("Total reward:", total_reward)
+        
     def evaluate(self):
         print("Run mode:", config.run_mode)
         if config.run_mode == "parallel":
@@ -218,6 +225,7 @@ class Population:
             done = terminated or truncated
 
         environment.close()
+        
         return genome.id, total_reward
 
     def relu_offset_fitness(self):
