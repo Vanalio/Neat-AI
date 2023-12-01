@@ -30,8 +30,12 @@ def neat():
 
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
+    
+    parser = argparse.ArgumentParser(description="Run NEAT algorithm")
+    
     parser.add_argument("--visualize", help="Visualize a saved genome file", type=str)
     parser.add_argument("--test", help="Test and render a specific genome file", type=str)
+    
     args = parser.parse_args()
 
     if args.visualize:
