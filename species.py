@@ -22,11 +22,12 @@ class Species:
     def produce_offspring(self, offspring_count=1):
         if not self.genomes:
             raise ValueError("No genomes in the species to produce offspring from.")
-        
         else:
             genome_list = list(self.genomes.values())  # Convert dictionary values to a list
             total_genomes = len(genome_list)
-            weights = [total_genomes - rank for rank in range(total_genomes)]
+
+            # Quadratic weighting: (total_genomes - rank)^2
+            weights = [(total_genomes - rank) ** 2 for rank in range(total_genomes)]
 
             offspring = {}
 
