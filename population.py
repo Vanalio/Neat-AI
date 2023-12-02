@@ -31,10 +31,10 @@ class Population:
     def _initialize_neurons(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        print("Initial neurons:")
-        print("INPUT:", len(self.input_ids), self.input_ids)
-        print("OUTPUT:", len(self.output_ids), self.output_ids)
-        print("HIDDEN:", config.hidden_neurons, "\n")
+        print("# Initial neurons:")
+        print("# INPUT:", len(self.input_ids), self.input_ids)
+        print("# OUTPUT:", len(self.output_ids), self.output_ids)
+        print("# HIDDEN:", config.hidden_neurons, "\n#############################################\n")
 
     def _initial_population(self):
         for _ in range(config.population_size):
@@ -121,6 +121,7 @@ class Population:
             del self.species[species_id] 
 
     def test_and_render_genome(self, genome=None):
+        print("Testing and rendering best genome...")
         test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
         
         # Use the provided genome if available, otherwise use the best genome
@@ -146,16 +147,15 @@ class Population:
             observation, reward, terminated, truncated, _ = test_environment.step(action)
             total_reward += reward
 
-            if terminated:
-                print("Terminated")
-            elif truncated:
-                print("Truncated")
-
             done = terminated or truncated
-        
+
+            if terminated:
+                print("Terminated with total reward:", total_reward)
+            elif truncated:
+                print("Truncated with total reward:", total_reward)
+
         test_environment.close()
 
-        print("Total reward:", total_reward)
         return total_reward
         
     def evaluate(self):

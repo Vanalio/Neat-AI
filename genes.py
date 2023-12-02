@@ -11,10 +11,9 @@ class NeuronGene:
         self.id = neuron_id if neuron_id is not None else IdManager.get_new_id()
         self.layer = layer
         if layer == "output":
-            self.activation = config.initial_output_activation
+            self.activation = config.default_output_activation
             self.bias = random.uniform(*config.bias_init_range)
         elif layer == "hidden":
-            #self.activation = config.initial_hidden_activation
             self.activation = random.choice(activation_functions.get_activation_functions())
             self.bias = random.uniform(*config.bias_init_range)
         else:

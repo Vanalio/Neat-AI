@@ -14,12 +14,12 @@ config = Config("config.ini", "DEFAULT")
 def neat():
     
     print("#############################################")
-    print(f"# NEAT ALGORITHM\n# Population size: {config.population_size}\n# Generations: {config.generations}\n# Run mode: {config.run_mode}\n#############################################\n")
+    print(f"# NEAT ALGORITHM\n# Population size: {config.population_size}\n# Generations: {config.generations}\n# Run mode: {config.run_mode}\n#")
 
     population = Population(initial=True)
 
     for generation in range(config.generations):
-        print("\n#############################################")
+        print("#############################################")
         print(f"# GENERATION: {population.generation}")
 
         population.evolve()
