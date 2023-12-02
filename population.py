@@ -24,34 +24,31 @@ class Population:
         self.best_genome = None
         self.environment = None
         if initial:
-            self._initialize_neuron_ids()
+            self._initialize_neurons()
             self._initial_population()
             self._initial_speciation()
 
-    def _initialize_neuron_ids(self):
+    def _initialize_neurons(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        self._print_neuron_ids()
-        
+        print("Initial neurons:")
+        print("INPUT:", len(self.input_ids), self.input_ids)
+        print("OUTPUT:", len(self.output_ids), self.output_ids)
+        print("HIDDEN:", config.hidden_neurons, "\n")
+
     def _initial_population(self):
         for _ in range(config.population_size):
             genome = Genome().create(self.input_ids, self.output_ids)
             self.genomes[genome.id] = genome
             self.generation = 0
 
-    def _print_neuron_ids(self):
-        print("Input Neuron IDs:", self.input_ids)
-        print("Output Neuron IDs:", self.output_ids)
-
     def _initial_speciation(self):
-        # execute speciate until species count stabilizes
-
+        print("Initial speciation...")
         previous_species_count = None
         stabilized = False
         stabilizing = 0
         tries = 0
 
-        
         while not stabilized and len(self.species) != config.target_species and tries < config.init_species_max_tries:
             self.speciate()
             self.remove_empty_species()
@@ -65,6 +62,7 @@ class Population:
                 stabilized = False
 
             previous_species_count = len(self.species)
+        print(f"Number of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance threshold: {config.distance_threshold}\n")
 
     def evolve(self):
         print("Evaluation...")
@@ -111,8 +109,6 @@ class Population:
         )
 
         config.distance_threshold *= adjustment_factor
-
-        print(f"Number of not empty species: {non_empty_species}, distance threshold: {config.distance_threshold}")
 
     def remove_empty_species(self):
         species_to_remove = []
@@ -163,7 +159,6 @@ class Population:
         return total_reward
         
     def evaluate(self):
-        print("Run mode:", config.run_mode)
         if config.run_mode == "parallel":
             self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps})
         elif config.run_mode == "serial":
@@ -287,8 +282,7 @@ class Population:
                     f"Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
                 )
         # count current number of species
-        print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])},", \
-              f"distance threshold: {config.distance_threshold}")
+        print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance threshold: {config.distance_threshold}")
         if self.best_genome:
             print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
             print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
