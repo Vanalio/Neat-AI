@@ -85,14 +85,10 @@ class Genome:
 
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
-                self.connection_genes[new_connection.id] = new_connection
+                self.connection_genes[new_connection.innovation] = new_connection
                 added_connections += 1
-                #print(f"Added connections: {added_connections} of {count}")
-            #else:
-                #print(f"Connection already exists between {from_neuron.id} and {to_neuron.id}")
 
             attempts += 1
-            #print(f"Attempt {attempts} of {max_attempts}")
 
     def crossover(self, other_genome):
         offspring = Genome()
@@ -126,30 +122,22 @@ class Genome:
             gene2 = genes2.get(innovation)
 
             offspring_gene = None
+
             if gene1 and gene2:
-
+                # If both parents have the gene
                 if more_fit_parent:
-
+                    # if more fit exist, take the gene from the more fit parent
                     parent_gene = gene1 if more_fit_parent == self else gene2
                     offspring_gene = parent_gene.copy(keep_innovation=True)
                 else:
-
+                    # if there is no more fit parent
                     if not gene1.enabled or not gene2.enabled:
-                        probability_to_disable = (
-                            config.matching_disabled_connection_chance
-                        )
-                        offspring_gene = random.choice([gene1, gene2]).copy(
-                            keep_innovation=True
-                        )
-                        offspring_gene.enabled = (
-                            False
-                            if random.random() < probability_to_disable
-                            else offspring_gene.enabled
-                        )
+                        # and if one of the parents has the gene disabled, there is a chance that the offspring will have a random parent's gene disabled
+                        offspring_gene = random.choice([gene1, gene2]).copy(keep_innovation=True)
+                        offspring_gene.enabled = (False if random.random() < config.matching_disabled_connection_chance else offspring_gene.enabled)
                     else:
-                        offspring_gene = random.choice([gene1, gene2]).copy(
-                            keep_innovation=True
-                        )
+                        # otherwise, randomly take the gene from one of the parents
+                        offspring_gene = random.choice([gene1, gene2]).copy(keep_innovation=True)
 
             elif gene1 or gene2:
                 # If only one parent has the gene (disjoint or excess)
@@ -159,12 +147,12 @@ class Genome:
                 # Inherit the gene only if the parent with the gene is the fittest
                 if more_fit_parent is None or parent_with_gene == more_fit_parent:
                     offspring_gene = parent_gene.copy(keep_innovation=True)
-                    offspring.connection_genes[offspring_gene.id] = offspring_gene
+                    offspring.connection_genes[offspring_gene.innovation] = offspring_gene
 
             if offspring_gene:
-                offspring.connection_genes[offspring_gene.id] = offspring_gene
+                # Add the gene to the offspring
+                offspring.connection_genes[offspring_gene.innovation] = offspring_gene
 
-        hidden_neuron_id_mapping = {}
         hidden_neuron_ids = set()
 
         for conn_gene in offspring.connection_genes.values():
@@ -189,26 +177,18 @@ class Genome:
                 hidden_neuron_ids.add(to_neuron_id)
 
         for neuron_id in hidden_neuron_ids:
-            new_neuron = None
             if neuron_id in self.neuron_genes and neuron_id in other_genome.neuron_genes:
-                chosen_parent = self if random.random() < 0.5 else other_genome
-                new_neuron = chosen_parent.neuron_genes[neuron_id].copy(keep_id=True)
+                if more_fit_parent:
+                    chosen_parent = self if more_fit_parent == self else other_genome
+                else:
+                    chosen_parent = self if random.random() < 0.5 else other_genome
+                offspring.neuron_genes[neuron_id] = chosen_parent.neuron_genes[neuron_id].copy(keep_id=True)
+            
             elif neuron_id in self.neuron_genes:
-                new_neuron = self.neuron_genes[neuron_id].copy(keep_id=True)
+                offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy(keep_id=True)
+            
             elif neuron_id in other_genome.neuron_genes:
-                new_neuron = other_genome.neuron_genes[neuron_id].copy(keep_id=True)
-
-            if new_neuron:
-                # Store the mapping from old ID to new ID
-                hidden_neuron_id_mapping[neuron_id] = new_neuron.id
-                offspring.neuron_genes[new_neuron.id] = new_neuron
-
-        """# Update connection genes with new hidden neuron IDs
-        for conn_gene in offspring.connection_genes.values():
-            if conn_gene.from_neuron in hidden_neuron_id_mapping:
-                conn_gene.from_neuron = hidden_neuron_id_mapping[conn_gene.from_neuron]
-            if conn_gene.to_neuron in hidden_neuron_id_mapping:
-                conn_gene.to_neuron = hidden_neuron_id_mapping[conn_gene.to_neuron]"""
+                offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy(keep_id=True)
 
         return offspring
 
@@ -223,12 +203,10 @@ class Genome:
             self.mutate_weight()
 
         if random.random() < config.bias_mutate_chance:
-            #self.mutate_bias()
-            pass
+            self.mutate_bias()
 
         if random.random() < config.activation_mutate_chance:
-            #self.mutate_activation_function()
-            pass
+            self.mutate_activation_function()
 
         if random.random() < config.connection_toggle_chance:
             self.mutate_connection_toggle()
@@ -262,10 +240,10 @@ class Genome:
         self.neuron_genes[new_neuron.id] = new_neuron
 
         new_connection1 = ConnectionGene(gene_to_split.from_neuron, new_neuron.id)
-        self.connection_genes[new_connection1.id] = new_connection1
+        self.connection_genes[new_connection1.innovation] = new_connection1
 
         new_connection2 = ConnectionGene(new_neuron.id, gene_to_split.to_neuron)
-        self.connection_genes[new_connection2.id] = new_connection2
+        self.connection_genes[new_connection2.innovation] = new_connection2
 
         new_connection1.weight = 1
         new_connection2.weight = gene_to_split.weight
@@ -314,7 +292,7 @@ class Genome:
         )
         gene_to_mutate.enabled = not gene_to_mutate.enabled
         #print(
-        #    f"Toggled connection {gene_to_mutate.id} from neuron {gene_to_mutate.from_neuron} to neuron {gene_to_mutate.to_neuron} in genome {self.id} to {gene_to_mutate.enabled}"
+        #    f"Toggled connection {gene_to_mutate.innovation} from neuron {gene_to_mutate.from_neuron} to neuron {gene_to_mutate.to_neuron} in genome {self.id} to {gene_to_mutate.enabled}"
         #)
 
     def mutate_neuron_toggle(self):
@@ -402,7 +380,7 @@ class Genome:
         # Compute average differences if there are matching genes
         if matching_genes > 0:
             weight_diff /= matching_genes
-            activation_diff /= matching_genes
+            activation_diff /= len(common_neurons)
 
         # Calculate the genetic distance
         N = max(len(self_connection_genes), len(other_connection_genes))
