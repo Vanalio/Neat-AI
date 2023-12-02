@@ -120,7 +120,7 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
-    def test_and_render_genome(self, genome=None):
+    def render_genome(self, genome=None):
         print("Testing and rendering best genome...")
         test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
         

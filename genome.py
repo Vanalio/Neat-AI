@@ -338,7 +338,7 @@ class Genome:
     def copy(self):
         new_genome = Genome()
 
-        new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=(gene.layer != "hidden")) for neuron_id, gene in self.neuron_genes.items()}
+        new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=True) for neuron_id, gene in self.neuron_genes.items()}
         new_genome.connection_genes = {conn_id: gene.copy(keep_innovation_number=True) for conn_id, gene in self.connection_genes.items()}
         new_genome.fitness = self.fitness
         new_genome.species_id = self.species_id

@@ -24,7 +24,7 @@ def neat():
 
         population.evolve()
 
-        best_genome_reward = population.test_and_render_genome(population.best_genome)
+        best_genome_reward = population.render_genome(population.best_genome)
         visualizer.visualize_genome(population.best_genome)
         visualizer.plot_rewards(generation, best_genome_reward)
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         # add genome to a new population
         population = Population(initial=False)
         population.genomes.append(genome)
-        population.test_and_render_genome(genome)
+        population.render_genome(genome)
 
     else:
         # Run the NEAT algorithm normally

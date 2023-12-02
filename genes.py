@@ -21,7 +21,7 @@ class NeuronGene:
             self.bias = 0
         self.enabled = True
 
-    def copy(self, keep_id=False):
+    def copy(self, keep_id=True):
         new_gene = NeuronGene(self.layer)
         new_gene.activation = self.activation
         new_gene.bias = self.bias
@@ -31,7 +31,6 @@ class NeuronGene:
         return new_gene
 class ConnectionGene:
     def __init__(self, from_neuron, to_neuron, connection_id=None):
-        self.id = connection_id if connection_id is not None else IdManager.get_new_id()
         self.innovation_number = InnovationManager.get_new_innovation()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
