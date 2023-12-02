@@ -189,21 +189,19 @@ class Genome:
                 hidden_neuron_ids.add(to_neuron_id)
 
         for neuron_id in hidden_neuron_ids:
-
-            if (
-                neuron_id in self.neuron_genes
-                and neuron_id in other_genome.neuron_genes
-            ):
+            new_neuron = None
+            if neuron_id in self.neuron_genes and neuron_id in other_genome.neuron_genes:
                 chosen_parent = self if random.random() < 0.5 else other_genome
-                offspring.neuron_genes[neuron_id] = chosen_parent.neuron_genes[
-                    neuron_id
-                ].copy()
+                new_neuron = chosen_parent.neuron_genes[neuron_id].copy()
             elif neuron_id in self.neuron_genes:
-                offspring.neuron_genes[neuron_id] = self.neuron_genes[neuron_id].copy()
+                new_neuron = self.neuron_genes[neuron_id].copy()
             elif neuron_id in other_genome.neuron_genes:
-                offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[
-                    neuron_id
-                ].copy()
+                new_neuron = other_genome.neuron_genes[neuron_id].copy()
+
+            if new_neuron:
+                # Store the mapping from old ID to new ID
+                hidden_neuron_id_mapping[neuron_id] = new_neuron.id
+                offspring.neuron_genes[new_neuron.id] = new_neuron
 
         # Update connection genes with new hidden neuron IDs
         for conn_gene in offspring.connection_genes.values():
