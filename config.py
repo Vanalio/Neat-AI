@@ -7,25 +7,26 @@ class Config:
         self.parser = configparser.ConfigParser()
         self.parser.read(filename)
         if section not in self.parser:
-            raise ValueError(
-                f"Section \"{section}\" not found in the configuration file."
-            )
+            raise ValueError(f"Section \"{section}\" not found in the configuration file.")
         self.load_config(section)
 
     def load_config(self, section):
         for key in self.parser[section]:
             value = self.parser.get(section, key)
+            # Strip inline comments from the value
+            value = self.strip_inline_comments(value)
             setattr(self, key, self.auto_type(value))
+
+    def strip_inline_comments(self, value):
+        # Split the value at the first occurrence of '#' and return the first part
+        return value.split('#', 1)[0].strip()
 
     def auto_type(self, value):
 
         if re.match(r"^[\s\d.,-]+$", value) and "," in value:
             parts = value.split(",")
             try:
-                return tuple(
-                    float(part.strip()) if "." in part else int(part.strip())
-                    for part in parts
-                )
+                return tuple(float(part.strip()) if "." in part else int(part.strip()) for part in parts)
             except ValueError:
                 pass
 

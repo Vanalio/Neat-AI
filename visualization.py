@@ -14,7 +14,7 @@ class NeatVisualizer:
         # Define x-coordinates for each layer
         left_x = 0.1  # X-coordinate for input neurons
         right_x = 0.9  # X-coordinate for output neurons
-        center_x_range = (0.4, 0.6)  # X-coordinate range for hidden neurons
+        center_x_range = (0.3, 0.7)  # X-coordinate range for hidden neurons
 
         # Function to calculate y-positions for input/output neurons
         def calculate_y_positions(neurons, start_y, end_y, x_pos):

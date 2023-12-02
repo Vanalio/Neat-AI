@@ -108,8 +108,8 @@ class Genome:
             else:
                 offspring.neuron_genes[neuron_id] = other_genome.neuron_genes[neuron_id].copy(keep_id=True)
 
-        genes1 = {gene.innovation_number: gene for gene in self.connection_genes.values()}
-        genes2 = {gene.innovation_number: gene for gene in other_genome.connection_genes.values()}
+        genes1 = {gene.innovation: gene for gene in self.connection_genes.values()}
+        genes2 = {gene.innovation: gene for gene in other_genome.connection_genes.values()}
         all_innovations = set(genes1.keys()) | set(genes2.keys())
 
         if self.fitness is None and other_genome.fitness is None:
@@ -121,9 +121,9 @@ class Genome:
         else:
             more_fit_parent = (self if self.fitness > other_genome.fitness else other_genome if self.fitness < other_genome.fitness else None)
 
-        for innovation_number in all_innovations:
-            gene1 = genes1.get(innovation_number)
-            gene2 = genes2.get(innovation_number)
+        for innovation in all_innovations:
+            gene1 = genes1.get(innovation)
+            gene2 = genes2.get(innovation)
 
             offspring_gene = None
             if gene1 and gene2:
@@ -131,7 +131,7 @@ class Genome:
                 if more_fit_parent:
 
                     parent_gene = gene1 if more_fit_parent == self else gene2
-                    offspring_gene = parent_gene.copy(keep_innovation_number=True)
+                    offspring_gene = parent_gene.copy(keep_innovation=True)
                 else:
 
                     if not gene1.enabled or not gene2.enabled:
@@ -139,7 +139,7 @@ class Genome:
                             config.matching_disabled_connection_chance
                         )
                         offspring_gene = random.choice([gene1, gene2]).copy(
-                            keep_innovation_number=True
+                            keep_innovation=True
                         )
                         offspring_gene.enabled = (
                             False
@@ -148,7 +148,7 @@ class Genome:
                         )
                     else:
                         offspring_gene = random.choice([gene1, gene2]).copy(
-                            keep_innovation_number=True
+                            keep_innovation=True
                         )
 
             elif gene1 or gene2:
@@ -158,7 +158,7 @@ class Genome:
 
                 # Inherit the gene only if the parent with the gene is the fittest
                 if more_fit_parent is None or parent_with_gene == more_fit_parent:
-                    offspring_gene = parent_gene.copy(keep_innovation_number=True)
+                    offspring_gene = parent_gene.copy(keep_innovation=True)
                     offspring.connection_genes[offspring_gene.id] = offspring_gene
 
             if offspring_gene:
@@ -339,7 +339,7 @@ class Genome:
         new_genome = Genome()
 
         new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=True) for neuron_id, gene in self.neuron_genes.items()}
-        new_genome.connection_genes = {conn_id: gene.copy(keep_innovation_number=True) for conn_id, gene in self.connection_genes.items()}
+        new_genome.connection_genes = {conn_id: gene.copy(keep_innovation=True) for conn_id, gene in self.connection_genes.items()}
         new_genome.fitness = self.fitness
         new_genome.species_id = self.species_id
 
@@ -349,15 +349,15 @@ class Genome:
         # Extract the highest innovation numbers
         self_connection_genes = self.connection_genes.values()
         other_connection_genes = other_genome.connection_genes.values()
-        max_inno1 = max((gene.innovation_number for gene in self_connection_genes), default=0)
-        max_inno2 = max((gene.innovation_number for gene in other_connection_genes), default=0)
+        max_inno1 = max((gene.innovation for gene in self_connection_genes), default=0)
+        max_inno2 = max((gene.innovation for gene in other_connection_genes), default=0)
         #print(f"Max innovation numbers: {max_inno1}, {max_inno2}")
 
         disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
 
         # Create sets of innovation numbers for efficient comparison
-        self_inno_set = {gene.innovation_number for gene in self_connection_genes}
-        other_inno_set = {gene.innovation_number for gene in other_connection_genes}
+        self_inno_set = {gene.innovation for gene in self_connection_genes}
+        other_inno_set = {gene.innovation for gene in other_connection_genes}
         #print(f"Self innovation numbers: {self_inno_set}")
         #print(f"Other innovation numbers: {other_inno_set}")
 
@@ -378,7 +378,7 @@ class Genome:
 
         # Process matching genes
         for gene in self_connection_genes:
-            inno_num = gene.innovation_number
+            inno_num = gene.innovation
             if inno_num in other_inno_set:
                 matching_genes += 1
                 other_gene = other_genome.connection_genes.get(inno_num)

@@ -1,3 +1,4 @@
+from hmac import new
 import random
 
 from torch_activation_functions import ActivationFunctions as activation_functions
@@ -30,17 +31,17 @@ class NeuronGene:
 
         return new_gene
 class ConnectionGene:
-    def __init__(self, from_neuron, to_neuron, connection_id=None):
-        self.innovation_number = InnovationManager.get_new_innovation()
+    def __init__(self, from_neuron, to_neuron, connection_innovation=None):
+        self.innovation = connection_innovation if connection_innovation is not None else InnovationManager.get_new_innovation()
         self.from_neuron = from_neuron
         self.to_neuron = to_neuron
         self.weight = random.uniform(*config.weight_init_range)
         self.enabled = True
 
-    def copy(self, keep_innovation_number=True):
-        new_gene = ConnectionGene(self.from_neuron, self.to_neuron, self.id)
+    def copy(self, keep_innovation=True):
+        new_gene = ConnectionGene(self.from_neuron, self.to_neuron)
         new_gene.weight = self.weight
         new_gene.enabled = self.enabled
-        new_gene.innovation_number = (self.innovation_number if keep_innovation_number else InnovationManager.get_new_innovation())
+        new_gene.innovation = (self.innovation if keep_innovation else new_gene.innovation)
 
         return new_gene
