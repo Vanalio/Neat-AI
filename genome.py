@@ -203,12 +203,12 @@ class Genome:
                 hidden_neuron_id_mapping[neuron_id] = new_neuron.id
                 offspring.neuron_genes[new_neuron.id] = new_neuron
 
-        # Update connection genes with new hidden neuron IDs
+        """# Update connection genes with new hidden neuron IDs
         for conn_gene in offspring.connection_genes.values():
             if conn_gene.from_neuron in hidden_neuron_id_mapping:
                 conn_gene.from_neuron = hidden_neuron_id_mapping[conn_gene.from_neuron]
             if conn_gene.to_neuron in hidden_neuron_id_mapping:
-                conn_gene.to_neuron = hidden_neuron_id_mapping[conn_gene.to_neuron]
+                conn_gene.to_neuron = hidden_neuron_id_mapping[conn_gene.to_neuron]"""
 
         return offspring
 
