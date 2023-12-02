@@ -34,17 +34,13 @@ class Species:
             for _ in range(offspring_count):
                 # Select two parent genomes based on rank from the list
                 parent1, parent2 = random.choices(genome_list, weights=weights, k=2)
+                print("Crossing over parents", parent1.id, "and", parent2.id)
                 new_genome = parent1.crossover(parent2)
+                print("Mutating child", new_genome.id)
                 new_genome.mutate()
                 offspring[new_genome.id] = new_genome
 
         return offspring
-
-    def random_genome(self):
-        if not self.genomes:
-            raise ValueError("No genomes in the species to copy from.")
-        random_genome = random.choice(list(self.genomes.values()))
-        return random_genome.copy()
 
     def is_same_species(self, genome, distance_threshold):
         # check if representative is set, raise error if not

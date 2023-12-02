@@ -364,9 +364,7 @@ class Population:
             # ignore if species has no genomes
             if not species_instance.genomes:
                 continue
-            offspring_count = self.get_offspring_count(
-                species_instance, needed_offspring
-            )
+            offspring_count = self.get_offspring_count(species_instance, needed_offspring)
             offspring = species_instance.produce_offspring(offspring_count)
             next_gen_crossovers.update(offspring)
 
