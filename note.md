@@ -10,7 +10,7 @@
 
 ## ADD
 
-- implement this (option to mutate or not and to initialize to fixed or random):
+- find a way to mutate also neurons (bias neurons!?), then implement this (option to mutate or not and to initialize to fixed or random):
     default_hidden_activation  = random
     mutate_hidden_activation   = True
     default_output_activation  = identity

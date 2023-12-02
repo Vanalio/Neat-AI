@@ -192,11 +192,11 @@ class Genome:
             new_neuron = None
             if neuron_id in self.neuron_genes and neuron_id in other_genome.neuron_genes:
                 chosen_parent = self if random.random() < 0.5 else other_genome
-                new_neuron = chosen_parent.neuron_genes[neuron_id].copy()
+                new_neuron = chosen_parent.neuron_genes[neuron_id].copy(keep_id=True)
             elif neuron_id in self.neuron_genes:
-                new_neuron = self.neuron_genes[neuron_id].copy()
+                new_neuron = self.neuron_genes[neuron_id].copy(keep_id=True)
             elif neuron_id in other_genome.neuron_genes:
-                new_neuron = other_genome.neuron_genes[neuron_id].copy()
+                new_neuron = other_genome.neuron_genes[neuron_id].copy(keep_id=True)
 
             if new_neuron:
                 # Store the mapping from old ID to new ID
@@ -223,10 +223,12 @@ class Genome:
             self.mutate_weight()
 
         if random.random() < config.bias_mutate_chance:
-            self.mutate_bias()
+            #self.mutate_bias()
+            pass
 
         if random.random() < config.activation_mutate_chance:
-            self.mutate_activation_function()
+            #self.mutate_activation_function()
+            pass
 
         if random.random() < config.connection_toggle_chance:
             self.mutate_connection_toggle()
