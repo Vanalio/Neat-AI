@@ -122,7 +122,7 @@ class Population:
 
     def render_genome(self, genome=None):
         print("Testing and rendering best genome...")
-        test_environment = gym.make("LunarLander-v2", max_episode_steps=config.environment_steps, render_mode="human")
+        test_environment = gym.make("LunarLander-v2", max_episode_steps=config.max_env_steps, render_mode="config.render_mode")
         
         # Use the provided genome if available, otherwise use the best genome
         test_genome = genome if genome is not None else self.best_genome
@@ -160,9 +160,9 @@ class Population:
         
     def evaluate(self):
         if config.run_mode == "parallel":
-            self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps})
+            self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.max_env_steps})
         elif config.run_mode == "serial":
-            self.evaluate_serial(self.generation, config.environment_seed, {"max_episode_steps": config.environment_steps})
+            self.evaluate_serial(self.generation, config.environment_seed, {"max_episode_steps": config.max_env_steps})
         elif config.run_mode == "dumb":
             self.evaluate_dumb()
         else:
