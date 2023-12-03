@@ -2,13 +2,7 @@
 
 ## FIXME
 
-- move render genome to visualize class and fix it
-
-## CHECK
-
-- remove redundant returns because mixed to side effects and not used elsewhere
-- add returns where useful
-- redundant computing of things already present as attributes in self or elsewhere
+- fix the render of genome loaded from file
 
 ## ADD
 
@@ -25,3 +19,9 @@
 - add connections works but can select from layer to layer couple already full when other from layer to layer couple is not
 - implement generations without improvement
 - implement interspecies mating
+
+## CHECK
+
+- remove redundant returns because mixed to side effects and not used elsewhere
+- add returns where useful
+- redundant computing of things already present as attributes in self or elsewhere
