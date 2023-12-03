@@ -17,7 +17,7 @@ class Genome:
         self.connection_genes = {}
         self.fitness = None
         self.species_id = None
-        matching_connections = len(self.connection_genes.values())
+        matching_connections = None
 
     def create(self, input_ids, output_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
