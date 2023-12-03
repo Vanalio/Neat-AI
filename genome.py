@@ -324,69 +324,72 @@ class Genome:
         return new_genome
 
     def calculate_genetic_distance(self, other_genome):
-        # Extract the highest innovation numbers
-        self_connection_genes = self.connection_genes.values()
-        other_connection_genes = other_genome.connection_genes.values()
-        max_inno1 = max((gene.innovation for gene in self_connection_genes), default=0)
-        max_inno2 = max((gene.innovation for gene in other_connection_genes), default=0)
-        #print(f"Max innovation numbers: {max_inno1}, {max_inno2}")
+        disjoint_connections = excess_connections = matching_connections = common_hidden_neurons = weight_diff = bias_diff = activation_diff = 0
+        
+        self_connections = self.connection_genes.values()
+        other_connections = other_genome.connection_genes.values()
+        
+        # create sets of innovation numbers
+        self_inno = {gene.innovation for gene in self_connections}
+        other_inno = {gene.innovation for gene in other_connections}
+        
+        # find the highest innovation numbers
+        max_inno1 = max(self_inno)
+        max_inno2 = max(other_inno)
 
-        disjoint_genes = excess_genes = matching_genes = weight_diff = activation_diff = 0
+        # create set of matching innovation numbers
+        matching_inno = self_inno & other_inno
 
-        # Create sets of innovation numbers for efficient comparison
-        self_inno_set = {gene.innovation for gene in self_connection_genes}
-        other_inno_set = {gene.innovation for gene in other_connection_genes}
-        #print(f"Self innovation numbers: {self_inno_set}")
-        #print(f"Other innovation numbers: {other_inno_set}")
+        # create set of excess innovation numbers
+        excess_self_inno = {inno for inno in self_inno if inno > max_inno2}
+        excess_other_inno = {inno for inno in other_inno if inno > max_inno1}
 
-        # Calculate excess genes
-        excess_self = {inno for inno in self_inno_set if inno > max_inno2}
-        excess_other = {inno for inno in other_inno_set if inno > max_inno1}
-        #print(f"Excess self: {excess_self}")
-        #print(f"Excess other: {excess_other}")
+        # create sets of disjoint innovation numbers
+        disjoint_self_inno = self_inno - other_inno - excess_self_inno
+        disjoint_other_inno = other_inno - self_inno - excess_other_inno
+        disjoint_inno = disjoint_self_inno | disjoint_other_inno
 
+        # create set of hidden neurons ids
+        self_hidden_neurons_id = {neuron_id for neuron_id, neuron in self.neuron_genes.items() if neuron.layer == "hidden"}
+        other_hidden_neurons_id = {neuron_id for neuron_id, neuron in other_genome.neuron_genes.items() if neuron.layer == "hidden"}
 
-        # Calculate disjoint genes (genes not in excess and not in the other genome)
-        disjoint_self = self_inno_set - other_inno_set - excess_self
-        #print(f"Disjoint self: {disjoint_self}")
-        disjoint_other = other_inno_set - self_inno_set - excess_other
-        #print(f"Disjoint other: {disjoint_other}")
-        disjoint = disjoint_self | disjoint_other
-        #print(f"Disjoint: {disjoint}")
+        # create set of common hidden neurons ids
+        common_hidden_neurons_id = self_hidden_neurons_id & other_hidden_neurons_id
 
-        # Process matching genes
-        for gene in self_connection_genes:
-            inno_num = gene.innovation
-            if inno_num in other_inno_set:
-                matching_genes += 1
-                other_gene = other_genome.connection_genes.get(inno_num)
-                if other_gene:
-                    weight_diff += abs(gene.weight - other_gene.weight)
+        # count size of matching, disjoint and excess genes
+        disjoint_connections = len(disjoint_inno)
+        excess_connections = len(excess_self_inno) + len(excess_other_inno)
+        matching_connections = len(matching_inno)
+        
+        # count size of common hidden neurons
+        common_hidden_neurons = len(common_hidden_neurons_id)
 
-        # Update counts for disjoint and excess genes
-        disjoint_genes = len(disjoint)
-        excess_genes = len(excess_self) + len(excess_other)
-        #print(f"Disjoint genes: {disjoint_genes} - Excess genes: {excess_genes}")
+        # calculate total absolute weight differences of matching genes
+        for gene in self_connections:
+            if gene.innovation in matching_inno:
+                other_gene = other_genome.connection_genes[gene.innovation]
+                weight_diff += abs(gene.weight - other_gene.weight)
+        
+        # Compute average weight difference
+        if matching_connections > 0:
+            weight_diff /= matching_connections
 
-        # Neuron genes comparison
-        self_neuron_genes = self.neuron_genes
-        #print(f"Self neuron genes: {self_neuron_genes}")
-        other_neuron_genes = other_genome.neuron_genes
-        #print(f"Other neuron genes: {other_neuron_genes}")
-        common_neurons = self_neuron_genes.keys() & other_neuron_genes.keys()
-        #print(f"Common neurons: {common_neurons}")
-        activation_diff = sum(self_neuron_genes[neuron_id].activation != other_neuron_genes[neuron_id].activation for neuron_id in common_neurons)
-
-        # Compute average differences if there are matching genes
-        if matching_genes > 0:
-            weight_diff /= matching_genes
-            activation_diff /= len(common_neurons)
+        # calculate total absolute bias and activation differences of common hidden neurons
+        for neuron_id in common_hidden_neurons_id:
+            self_neuron = self.neuron_genes[neuron_id]
+            other_neuron = other_genome.neuron_genes[neuron_id]
+            bias_diff += abs(self_neuron.bias - other_neuron.bias)
+            # activation diff is 1 if the activation functions are different, 0 otherwise
+            activation_diff += 1 if self_neuron.activation != other_neuron.activation else 0
+        
+        # Compute average bias and activation difference
+        if common_hidden_neurons > 0:
+            bias_diff /= common_hidden_neurons
+            activation_diff /= common_hidden_neurons
 
         # Calculate the genetic distance
-        N = max(len(self_connection_genes), len(other_connection_genes))
-        N = max(N, 1)  # Prevent division by zero
-        distance = (config.disjoint_coefficient * disjoint_genes + config.excess_coefficient * excess_genes) / N + config.activation_diff_coefficient * activation_diff + config.weight_diff_coefficient * weight_diff
-        #print(f"Distance: {distance}")
+        N = max(len(self_connections), len(other_connections), 1)
+        distance = (config.disjoint_coefficient * disjoint_connections + config.excess_coefficient * excess_connections) / N + config.activation_diff_coefficient * activation_diff + config.weight_diff_coefficient * weight_diff + config.bias_diff_coefficient * bias_diff
 
         return distance
 

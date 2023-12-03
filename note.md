@@ -13,7 +13,6 @@
 ## ADD
 
 - batch processing
-- bias in distance
 - elite id, avg number of neurons and connections in the species printout
 - more details on best genome printout (activation functions and biases)
 - activation function in the genome render

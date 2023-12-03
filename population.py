@@ -62,7 +62,7 @@ class Population:
                 stabilized = False
 
             previous_species_count = len(self.species)
-        print(f"Number of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance threshold: {config.distance_threshold}\n")
+        print(f"Number of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}\n")
 
     def evolve(self):
         print("Evaluation...")
@@ -277,18 +277,22 @@ class Population:
         print("Population info:")
         for _, species in self.species.items():
             if species.genomes or species.elites:
+                
+                # calculate average number of connections and idden neurons of genomes in species not using avg() function
+                avg_connections = int(sum([len(genome.connection_genes) for genome in species.genomes.values()]) / len(species.genomes))
+                avg_neurons = int(sum([len(genome.neuron_genes) for genome in species.genomes.values()]) / len(species.genomes)) - config.input_neurons - config.output_neurons
+                
                 print(
-                    f"Species ID: {species.id}, Average shared fitness: {species.average_shared_fitness}", \
-                    f"Members: {len(species.genomes)}, Elites: {len(species.elites)}, Age: {species.age}"
+                    f"Species: {species.id}, Age: {species.age}", \
+                    f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
+                    f"AVG --> shared fitness: {int(species.average_shared_fitness)}, connections: {avg_connections}, hidden neurons: {avg_neurons}"
                 )
         # count current number of species
-        print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance threshold: {config.distance_threshold}")
+        print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
         if self.best_genome:
             print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
             print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
-        #print(f"Best genome neurons id, layer bias and activation function: {[(n.id, n.layer, n.bias, n.activation) for n in self.best_genome.neuron_genes.values()]}")
-        #print(f"Best genome connections (from neuron id, to neuron id, weight): {[(c.from_neuron, c.to_neuron, c.weight) for c in self.best_genome.connection_genes.values()]}\n")
-        
+
     def prune(self):
         self.prune_genomes_from_species()
         self.sort_and_stats()
