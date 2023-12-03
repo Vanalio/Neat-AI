@@ -122,7 +122,7 @@ class Population:
 
     def render_genome(self, genome=None):
         print("Testing and rendering best genome...")
-        test_environment = gym.make("LunarLander-v2", max_episode_steps=config.max_env_steps, render_mode="config.render_mode")
+        test_environment = gym.make("LunarLander-v2", max_episode_steps=config.max_env_steps, render_mode=config.render_mode)
         
         # Use the provided genome if available, otherwise use the best genome
         test_genome = genome if genome is not None else self.best_genome
