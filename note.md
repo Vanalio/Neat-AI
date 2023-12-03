@@ -2,6 +2,7 @@
 
 ## FIXME
 
+- mutate, reproduction or next gen broken
 - move render genome to visualize class and fix it
 
 ## CHECK
