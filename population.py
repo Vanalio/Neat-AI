@@ -1,3 +1,4 @@
+from gettext import find
 import multiprocessing
 import random
 import pickle
@@ -80,11 +81,11 @@ class Population:
     def speciate(self):
         def find_species_for_genome(genome):
             for species_instance in self.species.values():
-                same_species, matching_connections = species_instance.is_same_species(genome, config.distance_threshold)
-                if same_species:
+                is_same, matching_connections = species_instance.is_same_species(genome, config.distance_threshold)
+                if is_same:
                     return species_instance, matching_connections
-            return None
-        
+            return None, None
+
         # Clear all genomes including elites from all species,
         # but keep representatives
         for species_instance in self.species.values():
