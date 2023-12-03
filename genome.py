@@ -309,11 +309,11 @@ class Genome:
         else:
             print(f"No other enabled hidden neurons to toggle in genome {self.id}")
 
-    def copy(self):
+    def copy(self, keep_id=True, keep_innovation=True):
         new_genome = Genome()
 
-        new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=True) for neuron_id, gene in self.neuron_genes.items()}
-        new_genome.connection_genes = {conn_id: gene.copy(keep_innovation=True) for conn_id, gene in self.connection_genes.items()}
+        new_genome.neuron_genes = {neuron_id: gene.copy(keep_id=keep_id) for neuron_id, gene in self.neuron_genes.items()}
+        new_genome.connection_genes = {conn_id: gene.copy(keep_innovation=keep_innovation) for conn_id, gene in self.connection_genes.items()}
         new_genome.fitness = self.fitness
         new_genome.species_id = self.species_id
 

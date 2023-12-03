@@ -1,4 +1,5 @@
 import argparse
+from cgi import test
 import multiprocessing  
 import matplotlib.pyplot as plt
 
@@ -24,9 +25,11 @@ def neat():
 
         population.evolve()
 
-        best_genome_reward = population.render_genome(population.best_genome)
-        visualizer.visualize_genome(population.best_genome)
-        visualizer.plot_rewards(generation, best_genome_reward)
+        test_genome = population.best_genome.copy(keep_id=False, keep_innovation=False)
+
+        test_genome_reward = population.render_genome(test_genome)
+        visualizer.visualize_genome(test_genome)
+        visualizer.plot_rewards(generation, test_genome_reward)
 
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"saves/population_gen_{generation}.pkl")
