@@ -17,6 +17,7 @@ class Genome:
         self.connection_genes = {}
         self.fitness = None
         self.species_id = None
+        matching_connections = 0
 
     def create(self, input_ids, output_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
@@ -38,12 +39,7 @@ class Genome:
 
     def max_total_connections(self):
         enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
-        #print(f"Enabled hidden neurons: {enabled_hidden_neurons}")
-        # Count current connections
-        #current_connections = len(self.connection_genes)
-        #print(f"Current connections: {current_connections}")
         max_total_connections = (enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons))
-        #print(f"Max total connections: {max_total_connections}")
 
         return max_total_connections
 
@@ -391,7 +387,7 @@ class Genome:
         N = max(len(self_connections), len(other_connections), 1)
         distance = (config.disjoint_coefficient * disjoint_connections + config.excess_coefficient * excess_connections) / N + config.activation_diff_coefficient * activation_diff + config.weight_diff_coefficient * weight_diff + config.bias_diff_coefficient * bias_diff
 
-        return distance
+        return distance, matching_connections
 
     def save_to_file(genome, filename):
         with open(filename, "wb") as file:

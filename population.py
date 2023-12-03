@@ -80,8 +80,9 @@ class Population:
     def speciate(self):
         def find_species_for_genome(genome):
             for species_instance in self.species.values():
-                if species_instance.is_same_species(genome, config.distance_threshold):
-                    return species_instance
+                same_species, matching_connections = species_instance.is_same_species(genome, config.distance_threshold)
+                if same_species:
+                    return species_instance, matching_connections
             return None
         
         # Clear all genomes including elites from all species,
@@ -91,13 +92,15 @@ class Population:
             species_instance.elites = {}
 
         for genome in self.genomes.values():
-            species_instance = find_species_for_genome(genome)
+            species_instance, matching_connections = find_species_for_genome(genome)
             if species_instance:
                 species_instance.add_genome(genome)
+                genome.matching_connections = matching_connections
             else:
                 new_species = Species()
-                new_species.add_genome(genome)
                 self.species[new_species.id] = new_species
+                new_species.add_genome(genome)
+                genome.matching_connections = len(genome.connection_genes)
 
         non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
         species_ratio = non_empty_species / config.target_species
@@ -278,14 +281,15 @@ class Population:
         for _, species in self.species.items():
             if species.genomes or species.elites:
                 
-                # calculate average number of connections and idden neurons of genomes in species not using avg() function
+                # calculate average number of total and matching connections and hidden neurons of genomes in species not using avg() function
                 avg_connections = int(sum([len(genome.connection_genes) for genome in species.genomes.values()]) / len(species.genomes))
+                avg_matching_connections = int(sum([genome.matching_connections for genome in species.genomes.values()]) / len(species.genomes))
                 avg_neurons = int(sum([len(genome.neuron_genes) for genome in species.genomes.values()]) / len(species.genomes)) - config.input_neurons - config.output_neurons
                 
                 print(
                     f"Species: {species.id}, Age: {species.age}", \
                     f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
-                    f"AVG --> shared fitness: {int(species.average_shared_fitness)}, connections: {avg_connections}, hidden neurons: {avg_neurons}"
+                    f"AVG --> shared fitness: {int(species.average_shared_fitness)}, connections: {avg_connections}, matching: {avg_matching_connections}, hidden neurons: {avg_neurons}"
                 )
         # count current number of species
         print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")

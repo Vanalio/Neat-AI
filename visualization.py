@@ -37,19 +37,32 @@ class NeatVisualizer:
         pos.update(calculate_y_positions(output_neurons, 0.1, 0.9, right_x))
         pos.update(calculate_hidden_positions(hidden_neurons, 0.1, 0.9))
 
-        # Add nodes and edges to the graph
+        # Add nodes and edges to the graph with modifications
         for neuron_id, neuron_gene in genome.neuron_genes.items():
             if neuron_gene.enabled:
                 color = "skyblue" if neuron_gene.layer == "input" else "lightgreen" if neuron_gene.layer == "output" else "lightgrey"
-                G.add_node(neuron_id, color=color, style="filled", shape="circle")
+                G.add_node(neuron_id, color=color, style="filled", shape="circle", activation=neuron_gene.activation)
 
+        # Modify edge addition to include weight
+        edge_weights = []
         for _, conn_gene in genome.connection_genes.items():
             if conn_gene.enabled:
-                G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron, weight=conn_gene.weight)
+                G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron)
+                edge_weights.append(abs(conn_gene.weight))  # use absolute value for visualization
+
+        # Normalize edge weights for visualization
+        max_weight = max(edge_weights, default=1)  # Avoid division by zero
+        edge_weights = [w / max_weight * 5 for w in edge_weights]  # Adjust scaling factor as needed
 
         # Draw the graph
         nx.draw(G, pos, with_labels=False, node_color=[G.nodes[node]["color"] for node in G.nodes],
-                edge_color="black", width=1, linewidths=1, node_size=500, alpha=0.9, ax=self.ax[0])
+                edge_color="black", width=edge_weights, linewidths=1, node_size=500, alpha=0.9, ax=self.ax[0])
+
+        # Add labels for activation functions of hidden neurons
+        for node, data in G.nodes(data=True):
+            if data.get('activation') and data['activation'] != 'identity':
+                self.ax[0].text(pos[node][0], pos[node][1]+0.05, data['activation'], horizontalalignment='center')
+
         self.ax[0].set_title("Genome Structure")
 
     def plot_rewards(self, generation, total_reward):

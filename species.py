@@ -45,9 +45,9 @@ class Species:
         if not self.representative:
             raise ValueError("Species has no representative, this should not happen.")
 
-        distance = genome.calculate_genetic_distance(self.representative)
+        distance, matching_connections = genome.calculate_genetic_distance(self.representative)
         
-        return distance <= distance_threshold
+        return distance <= distance_threshold, matching_connections
 
     def add_genome(self, genome):
         self.genomes[genome.id] = genome
