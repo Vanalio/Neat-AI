@@ -2,7 +2,7 @@
 
 ## FIXME
 
-- fix the render of genome loaded from file
+- move render genome to visualizer  and fix the load from file
 
 ## ADD
 
