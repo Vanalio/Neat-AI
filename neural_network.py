@@ -11,7 +11,8 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
 
         # Define device based on GPU availability
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
 
         # Extract neurons from genome and create neuron ID to index mapping
         self.neurons = {neuron.id: neuron for neuron in genome.neuron_genes.values()}
