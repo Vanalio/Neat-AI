@@ -1,6 +1,5 @@
 import argparse
 import multiprocessing  
-import matplotlib.pyplot as plt
 
 from population import Population
 from genome import Genome

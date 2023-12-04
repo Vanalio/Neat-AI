@@ -1,4 +1,3 @@
-from hmac import new
 import random
 
 from torch_activation_functions import ActivationFunctions as activation_functions

@@ -1,8 +1,8 @@
-from gettext import find
 import multiprocessing
 import random
 import pickle
 import gymnasium as gym
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -234,6 +234,12 @@ class Population:
         if isinstance(observations[0], tuple):
             observations = [observation[0] for observation in observations]
 
+        # Convert the list of numpy arrays to a single numpy array
+        observations_array = np.array(observations)
+
+        # Convert the numpy array to a PyTorch tensor
+        observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
+
         neural_network = NeuralNetwork(genome)
         neural_network.reset_states()
 
@@ -241,7 +247,7 @@ class Population:
         total_rewards = [0] * config.batch_size
 
         while not all(done):
-            output_logits = neural_network.forward(observations)
+            output_logits = neural_network.forward_batch(observations_tensor)
             action_probabilities = F.softmax(output_logits, dim=0)
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
 

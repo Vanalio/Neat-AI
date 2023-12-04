@@ -2,7 +2,8 @@
 
 ## FIXME
 
-- move render genome to visualizer  and fix the load from file
+- move render genome to visualizer
+- fix the entire visualizer (included load from file)
 
 ## ADD
 
@@ -16,12 +17,12 @@
     default_output_activation  = identity
     mutate_output_activation   = False
 
-- add connections works but can select from layer to layer couple already full when other from layer to layer couple is not
+- add connections works but can select a "from layer to layer" couple already full when an other "from layer to layer" couple is not
 - implement generations without improvement
 - implement interspecies mating
 
 ## CHECK
 
-- remove redundant returns because mixed to side effects and not used elsewhere
-- add returns where useful
+- remove redundant returns when in functions with side effects if not used anywhere
+- adding other values to the ones already returned if useful
 - redundant computing of things already present as attributes in self or elsewhere
