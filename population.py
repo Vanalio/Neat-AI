@@ -176,12 +176,7 @@ class Population:
 
     def evaluate_serial(self, generation, environment_seed, environment_config):
         for genome in self.genomes.values():
-            _, genome.fitness = self.evaluate_genome(genome, generation, environment_seed, environment_config)
-
-    def evaluate_dumb(self):
-            
-        for genome in self.genomes.values():
-            genome.fitness = 1
+            _, genome.fitness = self.evaluate_genome_batch(genome, generation, environment_seed, environment_config)
 
     def evaluate_parallel(self, generation, environment_seed, environment_config):
         with multiprocessing.Pool(config.parallelization) as pool:
@@ -194,6 +189,11 @@ class Population:
             # Process the results to update fitness values
             for genome_id, fitness in results:
                 self.genomes[genome_id].fitness = fitness
+
+    def evaluate_dumb(self):
+            
+        for genome in self.genomes.values():
+            genome.fitness = 1
 
     def evaluate_genome(self, genome, generation, environment_seed, environment_config):
         seed = environment_seed + generation
@@ -225,6 +225,40 @@ class Population:
         environment.close()
         
         return genome.id, total_reward
+
+    def evaluate_genome_batch(self, genome, generation, environment_seed, environment_config):
+        seed = environment_seed + generation
+        environments = [gym.make("LunarLander-v2", **environment_config) for _ in range(config.batch_size)]
+        observations = [environment.reset(seed=seed + i) for i, environment in enumerate(environments)]
+
+        if isinstance(observations[0], tuple):
+            observations = [observation[0] for observation in observations]
+
+        neural_network = NeuralNetwork(genome)
+        neural_network.reset_states()
+
+        done = [False] * config.batch_size
+        total_rewards = [0] * config.batch_size
+
+        while not all(done):
+            output_logits = neural_network.forward(observations)
+            action_probabilities = F.softmax(output_logits, dim=0)
+            actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
+
+            new_observations = []
+            new_rewards = []
+            new_done = []
+            for environment, action in zip(environments, actions):
+                observation, reward, terminated, truncated, _ = environment.step(action)
+                new_observations.append(observation)
+                new_rewards.append(reward)
+                new_done.append(terminated or truncated)
+
+            observations = new_observations
+            done = new_done
+            total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
+
+        return genome.id, sum(total_rewards) / len(total_rewards)
 
     def relu_offset_fitness(self):
 

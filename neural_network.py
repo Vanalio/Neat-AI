@@ -75,5 +75,35 @@ class NeuralNetwork(nn.Module):
         output_indices = self.layer_indices["output"]
         return self.neuron_states[output_indices]
 
+    def forward_batch(self, input_values):
+        # Expecting input_values to be a batch of inputs, shape: [batch_size, num_inputs]
+        batch_size = input_values.size(0)
+        num_neurons = len(self.neurons)  # Correctly define the number of neurons
+
+        # Apply refractory factor to hidden states
+        hidden_indices = self.layer_indices["hidden"]
+        self.neuron_states[hidden_indices] *= self.refractory_factor
+
+        # Initialize batch neuron states
+        batch_neuron_states = torch.zeros(batch_size, num_neurons, dtype=torch.float32).to(self.device)
+
+        # Assign input values to input neurons
+        input_indices = self.layer_indices["input"]
+        input_tensor = input_values.to(self.device)  # Shape: [batch_size, num_inputs]
+        batch_neuron_states[:, input_indices] = input_tensor
+
+        # Propagate through the network
+        total_input = torch.matmul(batch_neuron_states, self.weight_matrix) + self.biases
+
+        # Apply activation functions by layer
+        for layer, indices in self.layer_indices.items():
+            if layer != "input":  # Skip input layer for activations
+                activation_func = self.layer_activation_functions[layer]
+                batch_neuron_states[:, indices] = activation_func(total_input[:, indices])
+
+        # Extract and return output states for the batch
+        output_indices = self.layer_indices["output"]
+        return batch_neuron_states[:, output_indices]
+
     def reset_states(self):
         self.neuron_states = torch.zeros_like(self.neuron_states).to(self.device)
