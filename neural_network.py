@@ -78,14 +78,14 @@ class NeuralNetwork(nn.Module):
     def forward_batch(self, input_values):
         # Expecting input_values to be a batch of inputs, shape: [batch_size, num_inputs]
         batch_size = input_values.size(0)
-        num_neurons = len(self.neurons)  # Correctly define the number of neurons
-
-        # Apply refractory factor to hidden states
-        hidden_indices = self.layer_indices["hidden"]
-        self.neuron_states[hidden_indices] *= self.refractory_factor
+        num_neurons = len(self.neurons)
 
         # Initialize batch neuron states
         batch_neuron_states = torch.zeros(batch_size, num_neurons, dtype=torch.float32).to(self.device)
+        
+        # Apply refractory factor to hidden states
+        hidden_indices = self.layer_indices["hidden"]
+        batch_neuron_states[:, hidden_indices] *= self.refractory_factor
 
         # Assign input values to input neurons
         input_indices = self.layer_indices["input"]
@@ -103,6 +103,7 @@ class NeuralNetwork(nn.Module):
 
         # Extract and return output states for the batch
         output_indices = self.layer_indices["output"]
+
         return batch_neuron_states[:, output_indices]
 
     def reset_states(self):

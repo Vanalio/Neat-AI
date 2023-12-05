@@ -184,7 +184,7 @@ class Population:
             args = [(genome, generation, environment_seed, environment_config) for genome in self.genomes.values()]
 
             # Map the function across the genomes
-            results = pool.starmap(self.evaluate_genome, args)
+            results = pool.starmap(self.evaluate_genome_batch, args)
 
             # Process the results to update fitness values
             for genome_id, fitness in results:
@@ -227,9 +227,8 @@ class Population:
         return genome.id, total_reward
 
     def evaluate_genome_batch(self, genome, generation, environment_seed, environment_config):
-        seed = environment_seed + generation
         environments = [gym.make("LunarLander-v2", **environment_config) for _ in range(config.batch_size)]
-        observations = [environment.reset(seed=seed + i) for i, environment in enumerate(environments)]
+        observations = [environment.reset(seed=environment_seed + generation + i) for i, environment in enumerate(environments)]
 
         if isinstance(observations[0], tuple):
             observations = [observation[0] for observation in observations]
@@ -247,9 +246,13 @@ class Population:
         total_rewards = [0] * config.batch_size
 
         while not all(done):
+            #print(f"observations_tensor: {observations_tensor}")
             output_logits = neural_network.forward_batch(observations_tensor)
-            action_probabilities = F.softmax(output_logits, dim=0)
+            #print(f"output_logits: {output_logits}")
+            action_probabilities = F.softmax(output_logits, dim=1)
+            #print(f"action_probabilities: {action_probabilities}")
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
+            #print(f"actions: {actions}")
 
             new_observations = []
             new_rewards = []
@@ -263,8 +266,13 @@ class Population:
             observations = new_observations
             done = new_done
             total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
+        
+        for environment in environments:
+            environment.close()
+        
+        fitness = sum(total_rewards) / len(total_rewards)
 
-        return genome.id, sum(total_rewards) / len(total_rewards)
+        return genome.id, fitness
 
     def relu_offset_fitness(self):
 

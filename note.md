@@ -2,6 +2,7 @@
 
 ## FIXME
 
+- activation is per layer, must be per neuron
 - move render genome to visualizer
 - fix the entire visualizer (included load from file)
 
