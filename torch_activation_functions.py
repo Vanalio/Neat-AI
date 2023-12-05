@@ -15,8 +15,8 @@ class ActivationFunctions:
         return torch.where(x >= 0, 2 * torch.sigmoid(x) - 1, torch.zeros_like(x))
 
     @staticmethod
-    def brain_relu(x, relu_clip_at=1):
-        return torch.clamp(x, min=0, max=config.relu_clip_at)
+    def brain_relu(x, relu_clip_at=config.relu_clip_at):
+        return torch.clamp(x, min=0, max=relu_clip_at)
     
     @staticmethod
     def brain_tanh(x):
