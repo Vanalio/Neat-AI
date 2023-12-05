@@ -65,11 +65,14 @@ class NeuralNetwork(nn.Module):
         # Propagate through the network
         total_input = torch.matmul(self.neuron_states, self.weight_matrix) + self.biases
 
-        # Apply activation functions by layer
-        for layer, indices in self.layer_indices.items():
-            if layer != "input":  # Skip input layer for activations
-                activation_func = self.layer_activation_functions[layer]
-                self.neuron_states[indices] = activation_func(total_input[indices])
+        # Apply activation functions per neuron
+        for neuron_id, neuron in self.neurons.items():
+            neuron_index = self.neuron_id_to_index[neuron_id]
+            if neuron.layer != "input":  # Skip input layer for activations
+                activation_func = getattr(activation_functions, neuron.activation, None)
+                if activation_func is None:
+                    raise ValueError(f"Activation function \"{neuron.activation}\" not found in ActivationFunctions class")
+                self.neuron_states[neuron_index] = activation_func(total_input[neuron_index])
 
         # Extract and return output states
         output_indices = self.layer_indices["output"]
@@ -95,15 +98,17 @@ class NeuralNetwork(nn.Module):
         # Propagate through the network
         total_input = torch.matmul(batch_neuron_states, self.weight_matrix) + self.biases
 
-        # Apply activation functions by layer
-        for layer, indices in self.layer_indices.items():
-            if layer != "input":  # Skip input layer for activations
-                activation_func = self.layer_activation_functions[layer]
-                batch_neuron_states[:, indices] = activation_func(total_input[:, indices])
+        # Apply activation functions per neuron in batch
+        for neuron_id, neuron in self.neurons.items():
+            neuron_index = self.neuron_id_to_index[neuron_id]
+            if neuron.layer != "input":  # Skip input layer for activations
+                activation_func = getattr(activation_functions, neuron.activation, None)
+                if activation_func is None:
+                    raise ValueError(f"Activation function \"{neuron.activation}\" not found in ActivationFunctions class")
+                batch_neuron_states[:, neuron_index] = activation_func(total_input[:, neuron_index])
 
         # Extract and return output states for the batch
         output_indices = self.layer_indices["output"]
-
         return batch_neuron_states[:, output_indices]
 
     def reset_states(self):

@@ -248,10 +248,14 @@ class Population:
         while not all(done):
             #print(f"observations_tensor: {observations_tensor}")
             output_logits = neural_network.forward_batch(observations_tensor)
+            #print(f"output_logits shape: {output_logits.shape}")
             #print(f"output_logits: {output_logits}")
             action_probabilities = F.softmax(output_logits, dim=1)
+            #print(f"action_probabilities shape: {action_probabilities.shape}")
             #print(f"action_probabilities: {action_probabilities}")
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
+            #print(f"actions shape: {actions.shape}")
+            #print(f"actions: {actions}")
             #print(f"actions: {actions}")
 
             new_observations = []
