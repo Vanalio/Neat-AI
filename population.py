@@ -181,8 +181,8 @@ class Population:
 
     def evaluate_parallel(self):
         with multiprocessing.Pool(config.procs) as pool:
-            # Prepare arguments for each genome
-            args = [(genome) for genome in self.genomes.values()]
+            # Prepare arguments for each genome (each argument should be a tuple)
+            args = [(genome,) for genome in self.genomes.values()]
 
             # Map the function across the genomes
             results = pool.starmap(self.evaluate_genome_batch, args)
@@ -207,7 +207,7 @@ class Population:
 
         # Convert the numpy array to a PyTorch tensor
         observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
-        
+
         neural_network = NeuralNetwork(genome)
         neural_network.reset_states()
 
@@ -218,16 +218,21 @@ class Population:
             output_logits = neural_network.forward_batch(observations_tensor)
             action_probabilities = F.softmax(output_logits, dim=1)
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
-            #print(f"actions: {actions}")
 
             new_observations = []
             new_rewards = []
             new_done = []
-            for environment, action in zip(environments, actions):
-                observation, reward, terminated, truncated, _ = environment.step(action)
-                new_observations.append(observation)
-                new_rewards.append(reward)
-                new_done.append(terminated or truncated)
+            for i, (environment, action) in enumerate(zip(environments, actions)):
+                if not done[i]:  # Only process environments that are not done
+                    observation, reward, terminated, truncated, _ = environment.step(action)
+                    new_observations.append(observation)
+                    new_rewards.append(reward)
+                    new_done.append(terminated or truncated)
+                else:
+                    # Append existing values for environments that are done
+                    new_observations.append(observations[i])
+                    new_rewards.append(0)  # No additional reward
+                    new_done.append(True)  # Remains done
                 step += 1
 
             observations = new_observations
