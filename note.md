@@ -2,6 +2,7 @@
 
 ## FIXME
 
+- reward is broken?
 - move render genome to visualizer
 - fix the entire visualizer (included load from file)
 
