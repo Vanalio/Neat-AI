@@ -165,9 +165,9 @@ class Population:
         
     def evaluate(self):
         if config.run_mode == "parallel":
-            self.evaluate_parallel(self.generation, config.environment_seed, {"max_episode_steps": config.max_env_steps})
+            self.evaluate_parallel()
         elif config.run_mode == "serial":
-            self.evaluate_serial(self.generation, config.environment_seed, {"max_episode_steps": config.max_env_steps})
+            self.evaluate_serial()
         elif config.run_mode == "dumb":
             self.evaluate_dumb()
         else:
@@ -175,14 +175,14 @@ class Population:
 
         self.relu_offset_fitness()
 
-    def evaluate_serial(self, generation, environment_seed, environment_config):
+    def evaluate_serial(self):
         for genome in self.genomes.values():
-            _, genome.fitness = self.evaluate_genome_batch(genome, generation, environment_seed, environment_config)
+            _, genome.fitness = self.evaluate_genome_batch(genome)
 
-    def evaluate_parallel(self, generation, environment_seed, environment_config):
-        with multiprocessing.Pool(config.parallelization) as pool:
+    def evaluate_parallel(self):
+        with multiprocessing.Pool(config.procs) as pool:
             # Prepare arguments for each genome
-            args = [(genome, generation, environment_seed, environment_config) for genome in self.genomes.values()]
+            args = [(genome) for genome in self.genomes.values()]
 
             # Map the function across the genomes
             results = pool.starmap(self.evaluate_genome_batch, args)
@@ -192,44 +192,12 @@ class Population:
                 self.genomes[genome_id].fitness = fitness
 
     def evaluate_dumb(self):
-            
         for genome in self.genomes.values():
             genome.fitness = 1
 
-    def evaluate_genome(self, genome, generation, environment_seed, environment_config):
-        seed = environment_seed + generation
-        environment = gym.make("LunarLander-v2", **environment_config)
-        observation = environment.reset(seed=seed)
-
-        if isinstance(observation, tuple):
-            observation = observation[0]
-
-        neural_network = NeuralNetwork(genome)
-        neural_network.reset_states()
-
-        done = False
-        total_reward = 0
-
-        while not done:
-            output_logits = neural_network.forward(observation)
-            action_probabilities = F.softmax(output_logits, dim=0)
-            action = torch.argmax(action_probabilities).cpu().item()
-
-            observation, reward, terminated, truncated, _ = environment.step(action)
-            total_reward += reward
-
-            if isinstance(observation, tuple):
-                observation = observation[0]
-
-            done = terminated or truncated
-
-        environment.close()
-        
-        return genome.id, total_reward
-
-    def evaluate_genome_batch(self, genome, generation, environment_seed, environment_config):
-        environments = [gym.make("LunarLander-v2", **environment_config) for _ in range(config.batch_size)]
-        observations = [environment.reset(seed=(i+1)*(environment_seed+generation)) for i, environment in enumerate(environments)]
+    def evaluate_genome_batch(self, genome):
+        environments = [gym.make("LunarLander-v2", ) for _ in range(config.batch_size)]
+        observations = [environment.reset(seed = self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
 
         if isinstance(observations[0], tuple):
             observations = [observation[0] for observation in observations]
@@ -239,41 +207,32 @@ class Population:
 
         # Convert the numpy array to a PyTorch tensor
         observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
-
+        
         neural_network = NeuralNetwork(genome)
         neural_network.reset_states()
 
         done = [False] * config.batch_size
         total_rewards = [0] * config.batch_size
-
+        step = 0
         while not all(done):
-            #print(f"\nobservations_tensor: {observations_tensor}")
             output_logits = neural_network.forward_batch(observations_tensor)
-            #print(f"output_logits shape: {output_logits.shape}")
-            #print(f"output_logits: {output_logits}")
             action_probabilities = F.softmax(output_logits, dim=1)
-            #print(f"action_probabilities shape: {action_probabilities.shape}")
-            #print(f"action_probabilities: {action_probabilities}")
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
-            #print(f"actions shape: {actions.shape}")
             #print(f"actions: {actions}")
 
             new_observations = []
             new_rewards = []
             new_done = []
             for environment, action in zip(environments, actions):
-                #print(f"\naction: {action}, environment: {environment}")
                 observation, reward, terminated, truncated, _ = environment.step(action)
-                #print(f"observation: {observation}, reward: {reward}")
                 new_observations.append(observation)
                 new_rewards.append(reward)
                 new_done.append(terminated or truncated)
-                #print(f"new observations: {new_observations}, new rewards: {new_rewards}, new done: {new_done}\n")
+                step += 1
 
             observations = new_observations
             done = new_done
             total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
-            #print(f"observations: {observations}, done: {done}, total_rewards: {total_rewards}\n")
 
             # Convert the new observations list to a numpy array
             observations_array = np.array(new_observations)
@@ -285,7 +244,6 @@ class Population:
             environment.close()
         
         fitness = sum(total_rewards) / len(total_rewards)
-        #print(f"fitness: {fitness}\n")
 
         return genome.id, fitness
 
