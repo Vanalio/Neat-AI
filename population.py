@@ -362,9 +362,10 @@ class Population:
                   f"dis conn: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
                   f"dis neur: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
                  ) 
+            for n in self.best_genome.neuron_genes.values():
+                print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
             for c in self.best_genome.connection_genes.values():
-                print(f"connections: {c.innovation} from {c.from_neuron} to {c.to_neuron} with weight {c.weight}")
-            print(f"neurons: {n.id} ({n.bias})" for n in self.best_genome.neuron_genes.values())
+                print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
                 
     def prune(self):
         self.prune_genomes_from_species()
