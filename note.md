@@ -2,6 +2,7 @@
 
 ## FIXME
 
+- BEST GENOME: 253932, Fitness: 47228.408363353024, connections: 18, hidden neurons: 1 ???
 - reward is broken?
 - move render genome to visualizer
 - fix the entire visualizer (included load from file)
