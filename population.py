@@ -228,7 +228,7 @@ class Population:
 
     def evaluate_genome_batch(self, genome, generation, environment_seed, environment_config):
         environments = [gym.make("LunarLander-v2", **environment_config) for _ in range(config.batch_size)]
-        observations = [environment.reset(seed=environment_seed + generation + i) for i, environment in enumerate(environments)]
+        observations = [environment.reset(seed=(i+1)*(environment_seed+generation)) for i, environment in enumerate(environments)]
 
         if isinstance(observations[0], tuple):
             observations = [observation[0] for observation in observations]
@@ -246,7 +246,7 @@ class Population:
         total_rewards = [0] * config.batch_size
 
         while not all(done):
-            #print(f"observations_tensor: {observations_tensor}")
+            #print(f"\nobservations_tensor: {observations_tensor}")
             output_logits = neural_network.forward_batch(observations_tensor)
             #print(f"output_logits shape: {output_logits.shape}")
             #print(f"output_logits: {output_logits}")
@@ -256,25 +256,35 @@ class Population:
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
             #print(f"actions shape: {actions.shape}")
             #print(f"actions: {actions}")
-            #print(f"actions: {actions}")
 
             new_observations = []
             new_rewards = []
             new_done = []
             for environment, action in zip(environments, actions):
+                #print(f"\naction: {action}, environment: {environment}")
                 observation, reward, terminated, truncated, _ = environment.step(action)
+                #print(f"observation: {observation}, reward: {reward}")
                 new_observations.append(observation)
                 new_rewards.append(reward)
                 new_done.append(terminated or truncated)
+                #print(f"new observations: {new_observations}, new rewards: {new_rewards}, new done: {new_done}\n")
 
             observations = new_observations
             done = new_done
             total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
-        
+            #print(f"observations: {observations}, done: {done}, total_rewards: {total_rewards}\n")
+
+            # Convert the new observations list to a numpy array
+            observations_array = np.array(new_observations)
+
+            # Convert the numpy array to a PyTorch tensor and assign it to observations_tensor
+            observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
+
         for environment in environments:
             environment.close()
         
         fitness = sum(total_rewards) / len(total_rewards)
+        #print(f"fitness: {fitness}\n")
 
         return genome.id, fitness
 
