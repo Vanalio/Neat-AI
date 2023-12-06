@@ -1,6 +1,7 @@
 import multiprocessing
 import random
 import pickle
+from sqlite3 import connect
 import gymnasium as gym
 import numpy as np
 import torch
@@ -110,7 +111,7 @@ class Population:
             if species_ratio < 1.0
             else 1.0 + config.distance_adj_factor
         )
-        print(f"Number of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}\n")
+        print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
 
         config.distance_threshold *= adjustment_factor
 
@@ -340,7 +341,6 @@ class Population:
         return self.best_genome
 
     def print_population_info(self):
-        print("Population info:")
         for _, species in self.species.items():
             if species.genomes or species.elites:
                 
@@ -356,9 +356,16 @@ class Population:
                 )
         # count current number of species
         if self.best_genome:
-            print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
-            print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
-
+            print(
+                  f"BEST GENOME: {self.best_genome.id}, Fit: {self.max_fitness}, conn: {len(self.best_genome.connection_genes)}, "
+                  f"hid neur: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}, "
+                  f"dis conn: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
+                  f"dis neur: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
+                 ) 
+            for c in self.best_genome.connection_genes.values():
+                print(f"connections: {c.innovation} from {c.from_neuron} to {c.to_neuron} with weight {c.weight}")
+            print(f"neurons: {n.id} ({n.bias})" for n in self.best_genome.neuron_genes.values())
+                
     def prune(self):
         self.prune_genomes_from_species()
         self.sort_and_stats()
