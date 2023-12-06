@@ -32,7 +32,7 @@ class Population:
     def _initialize_neurons(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        print("# Initial neurons:")
+        print("# Initial population neurons:")
         print("# INPUT:", len(self.input_ids), self.input_ids)
         print("# OUTPUT:", len(self.output_ids), self.output_ids)
         print("# HIDDEN:", config.hidden_neurons, "\n#############################################\n")
@@ -63,7 +63,6 @@ class Population:
                 stabilized = False
 
             previous_species_count = len(self.species)
-        print(f"Number of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}\n")
 
     def evolve(self):
         print("Evaluation...")
@@ -111,6 +110,7 @@ class Population:
             if species_ratio < 1.0
             else 1.0 + config.distance_adj_factor
         )
+        print(f"Number of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}\n")
 
         config.distance_threshold *= adjustment_factor
 
@@ -355,7 +355,6 @@ class Population:
                     f"AVG --> shared fitness: {int(species.average_shared_fitness)}, connections: {avg_connections}, matching: {avg_matching_connections}, hidden neurons: {avg_neurons}"
                 )
         # count current number of species
-        print(f"\nNumber of not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
         if self.best_genome:
             print(f"BEST GENOME: {self.best_genome.id}, Fitness: {self.max_fitness}, connections: {len(self.best_genome.connection_genes)}, hidden neurons: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}")
             print(f"disabled connections: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, disabled neurons: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}\n")
