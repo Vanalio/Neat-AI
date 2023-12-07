@@ -208,7 +208,6 @@ class Genome:
 
     def mutate(self):
         if random.random() < config.connection_add_chance:
-            print(f"Adding connection to genome {self.id} due to mutation")
             self.mutate_add_connection()
 
         if random.random() < config.neuron_add_chance:

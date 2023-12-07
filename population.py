@@ -407,11 +407,13 @@ class Population:
                 continue
             offspring_count = self.get_offspring_count(species_instance, needed_offspring)
             offspring = species_instance.produce_offspring(offspring_count)
-            offspring = offspring.mutate()
             next_gen_crossovers.update(offspring)
 
         while len(next_gen_crossovers) + len(next_gen_elites) < config.population_size:
             next_gen_crossovers.update(self.random_species().produce_offspring(1))
+
+        for _, genome in next_gen_crossovers.items():
+            genome.mutate()
 
         return next_gen_crossovers
 
