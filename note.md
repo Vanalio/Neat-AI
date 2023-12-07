@@ -19,7 +19,7 @@
     default_output_activation  = identity
     mutate_output_activation   = False
 
-- add connections works but can select a "from layer to layer" couple already full when an other "from layer to layer" couple is not
+- add connections can select a "from layer to layer" couple already full when an other "from layer to layer" couple is not
 - implement generations without improvement
 - implement interspecies mating
 
