@@ -1,7 +1,6 @@
 import multiprocessing
 import random
 import pickle
-from sqlite3 import connect
 import gymnasium as gym
 import numpy as np
 import torch
@@ -375,7 +374,7 @@ class Population:
         next_gen = {}
 
         next_gen_elites = self.carry_over_elites()
-        
+
         next_gen_crossovers = self.reproduce(next_gen_elites)
         self.mutate_genomes(next_gen_crossovers)
 
