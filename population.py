@@ -373,13 +373,12 @@ class Population:
 
     def form_next_generation(self):
         next_gen = {}
-        next_gen_elites = {}
-        next_gen_crossovers = {}
 
-        next_gen_elites = self.carry_over_elites(next_gen_elites)
-        next_gen_crossovers = self.reproduce(next_gen_elites, next_gen_crossovers)
+        next_gen_elites = self.carry_over_elites()
+        
+        next_gen_crossovers = self.reproduce(next_gen_elites)
+        self.mutate_genomes(next_gen_crossovers)
 
-        # print the number of elites and crossovers
         next_gen.update(next_gen_elites)
         next_gen.update(next_gen_crossovers)
 
@@ -391,18 +390,16 @@ class Population:
         
         self.purge_species()
     
-    def carry_over_elites(self, next_gen_elites):
+    def carry_over_elites(self):
+        next_gen_elites = {}
         for species_instance in self.species.values():
-
             next_gen_elites.update(species_instance.elites)
-
         return next_gen_elites
 
-    def reproduce(self, next_gen_elites, next_gen_crossovers):
-
+    def reproduce(self, next_gen_elites):
+        next_gen_crossovers = {}
         needed_offspring = config.population_size - len(next_gen_elites)
         for species_instance in self.species.values():
-            # ignore if species has no genomes
             if not species_instance.genomes:
                 continue
             offspring_count = self.get_offspring_count(species_instance, needed_offspring)
@@ -412,10 +409,11 @@ class Population:
         while len(next_gen_crossovers) + len(next_gen_elites) < config.population_size:
             next_gen_crossovers.update(self.random_species().produce_offspring(1))
 
-        for _, genome in next_gen_crossovers.items():
-            genome.mutate()
-
         return next_gen_crossovers
+
+    def mutate_genomes(self, genomes):
+        for _, genome in genomes.items():
+            genome.mutate()
 
     def get_offspring_count(self, species_instance, needed_offspring):
 
