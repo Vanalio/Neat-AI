@@ -50,60 +50,6 @@ class Genome:
 
         return max_attempts
 
-    def add_connections_old(self, from_layer=None, to_layer=None, count=1):
-        attempts = 0
-        added_connections = 0
-        max_attempts = self.max_attempts()
-
-        while added_connections != count and attempts < max_attempts:
-
-            from_neurons = []
-            to_neurons = []
-
-            if from_layer and to_layer:
-                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer and neuron.enabled]
-                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer and neuron.enabled]
-
-            else:
-                from_layers = ["input", "hidden"]
-                attempting_from_layer = random.choice(from_layers)
-                if attempting_from_layer == "input":
-                    attempting_to_layer = "hidden"
-                else:
-                    attempting_to_layer = random.choice(["hidden", "output"])
-
-                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer and neuron.enabled]
-                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer and neuron.enabled]
-
-            from_neuron = random.choice(from_neurons)
-            to_neuron = random.choice(to_neurons)
-            existing_connection = any(conn.from_neuron == from_neuron.id and conn.to_neuron == to_neuron.id for conn in self.connection_genes.values())
-
-            if not existing_connection:
-                new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
-                if len(self.connection_genes) > self.max_total_connections():
-                    print(f"\n****************************************************************************************\n"
-                          f"Connection with innovation {new_connection.innovation} wrongly added to genome {self.id}\n"
-                          f"****************************************************************************************\n")
-                    print(f"Attempting from layer: {attempting_from_layer}")
-                    print(f"Attempting to layer: {attempting_to_layer}")
-                    print(f"From neurons id: {[neuron.id for neuron in from_neurons]}")
-                    print(f"To neurons id: {[neuron.id for neuron in to_neurons]}")
-                    print(f"Chosen from neuron id: {from_neuron.id}")
-                    print(f"Chosen to neuron id: {to_neuron.id}")
-                    print(f"Input neurons id: {[neuron.id for neuron in self.neuron_genes.values() if neuron.layer == 'input']}")
-                    print(f"Output neurons id: {[neuron.id for neuron in self.neuron_genes.values() if neuron.layer == 'output']}")
-                    print(f"Hidden neurons id: {[neuron.id for neuron in self.neuron_genes.values() if neuron.layer == 'hidden']}")
-                    for n in self.neuron_genes.values():
-                        print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
-                    for c in self.connection_genes.values():
-                        print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
-                    sys.exit()    
-                self.connection_genes[new_connection.innovation] = new_connection
-                added_connections += 1
-
-            attempts += 1
-
     def add_connections(self, from_layer=None, to_layer=None, count=1):
         attempts = 0
         added_connections = 0
@@ -144,7 +90,6 @@ class Genome:
                 existing_connections.add((from_neuron.id, to_neuron.id))
 
             attempts += 1
-
 
     def crossover(self, other_genome):
         offspring = Genome()
@@ -319,7 +264,7 @@ class Genome:
     def mutate_bias(self):
 
         gene_to_mutate = random.choice(
-            [gene for gene in self.neuron_genes.values() if gene.layer != "input"]
+            [gene for gene in self.neuron_genes.values() if gene.layer == "hidden"]
         )
 
         if random.random() < config.bias_perturb_vs_set_chance:

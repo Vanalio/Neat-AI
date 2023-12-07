@@ -52,32 +52,6 @@ class NeuralNetwork(nn.Module):
         # Refractory factor
         self.refractory_factor = refractory_factor
 
-    def forward(self, input_values):
-        # Apply refractory factor to hidden states
-        hidden_indices = self.layer_indices["hidden"]
-        self.neuron_states[hidden_indices] *= self.refractory_factor
-
-        # Assign input values to input neurons
-        input_indices = self.layer_indices["input"]
-        input_tensor = torch.tensor(input_values, dtype=torch.float32).to(self.device)
-        self.neuron_states[input_indices] = input_tensor
-
-        # Propagate through the network
-        total_input = torch.matmul(self.neuron_states, self.weight_matrix) + self.biases
-
-        # Apply activation functions per neuron
-        for neuron_id, neuron in self.neurons.items():
-            neuron_index = self.neuron_id_to_index[neuron_id]
-            if neuron.layer != "input":  # Skip input layer for activations
-                activation_func = getattr(activation_functions, neuron.activation, None)
-                if activation_func is None:
-                    raise ValueError(f"Activation function \"{neuron.activation}\" not found in ActivationFunctions class")
-                self.neuron_states[neuron_index] = activation_func(total_input[neuron_index])
-
-        # Extract and return output states
-        output_indices = self.layer_indices["output"]
-        return self.neuron_states[output_indices]
-
     def forward_batch(self, input_values):
         # Expecting input_values to be a batch of inputs, shape: [batch_size, num_inputs]
         batch_size = input_values.size(0)

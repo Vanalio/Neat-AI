@@ -124,43 +124,65 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
-    def render_genome(self, genome=None):
-        print("Testing and rendering best genome...")
-        test_environment = gym.make("LunarLander-v2", max_episode_steps=config.max_env_steps, render_mode=config.render_mode)
-        
-        # Use the provided genome if available, otherwise use the best genome
-        test_genome = genome if genome is not None else self.best_genome
+    def render_genome(self, genome):
+        single_batch = 1
+        environments = [gym.make("LunarLander-v2", render_mode="human", ) for _ in range(single_batch)]
+        observations = [environment.reset(seed = self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
 
-        if test_genome is None:
-            print("No genome available to render.")
-            return
+        if isinstance(observations[0], tuple):
+            observations = [observation[0] for observation in observations]
 
-        observation = test_environment.reset()
-        neural_network = NeuralNetwork(self.best_genome)
+        # Convert the list of numpy arrays to a single numpy array
+        observations_array = np.array(observations)
+
+        # Convert the numpy array to a PyTorch tensor
+        observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
+
+        neural_network = NeuralNetwork(genome)
         neural_network.reset_states()
-        done = False
-        total_reward = 0
 
-        while not done:
-            if isinstance(observation, tuple):
-                observation = observation[0]
+        done = [False] * single_batch
+        total_rewards = [0] * single_batch
+        step = 0
+        while not all(done):
+            output_logits = neural_network.forward_batch(observations_tensor)
+            action_probabilities = F.softmax(output_logits, dim=1)
+            actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
 
-            output_logits = neural_network.forward(observation)
-            action_probabilities = F.softmax(output_logits, dim=0)
-            action = torch.argmax(action_probabilities).cpu().item()
-            observation, reward, terminated, truncated, _ = test_environment.step(action)
-            total_reward += reward
+            new_observations = []
+            new_rewards = []
+            new_done = []
+            for i, (environment, action) in enumerate(zip(environments, actions)):
+                if not done[i]:  # Only process environments that are not done
+                    observation, reward, terminated, truncated, _ = environment.step(action)
+                    new_observations.append(observation)
+                    new_rewards.append(reward)
+                    new_done.append(terminated or truncated)
+                else:
+                    # Append existing values for environments that are done
+                    new_observations.append(observations[i])
+                    new_rewards.append(0)  # No additional reward
+                    new_done.append(True)  # Remains done
+                step += 1
 
-            done = terminated or truncated
+            observations = new_observations
+            done = new_done
+            total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
 
-            if terminated:
-                print("Terminated with total reward:", total_reward)
-            elif truncated:
-                print("Truncated with total reward:", total_reward)
+            # Convert the new observations list to a numpy array
+            observations_array = np.array(new_observations)
 
-        test_environment.close()
+            # Convert the numpy array to a PyTorch tensor and assign it to observations_tensor
+            observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
 
-        return total_reward
+        for environment in environments:
+            environment.close()
+        
+        fitness = sum(total_rewards) / len(total_rewards)
+
+        print(f"Genome {genome.id} fitness: {fitness}")
+
+        return fitness
         
     def evaluate(self):
         if config.run_mode == "parallel":

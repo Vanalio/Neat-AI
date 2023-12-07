@@ -13,6 +13,7 @@ class NeuronGene:
         if layer == "output":
             self.activation = config.default_output_activation
             self.bias = random.uniform(*config.bias_init_range)
+            self.bias = 0
         elif layer == "hidden":
             self.activation = random.choice(activation_functions.get_activation_functions())
             self.bias = random.uniform(*config.bias_init_range)
