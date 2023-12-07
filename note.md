@@ -3,10 +3,9 @@
 ## FIXME
 
 - BEST GENOME: 253932, Fitness: 47228.408363353024, connections: 18, hidden neurons: 1 ???
-- add connections is broken
+- add connections is possibly broken
 - refactor from_neuron, to neuron to from_neuron_id, to_neuron_id
-- move render genome to visualizer
-- fix the entire visualizer (included load from file)
+- move render genome to visualizer, then fix the entire visualizer (included load from file)
 
 ## ADD
 

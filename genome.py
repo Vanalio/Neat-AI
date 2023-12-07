@@ -50,7 +50,7 @@ class Genome:
 
         return max_attempts
 
-    def add_connections(self, from_layer=None, to_layer=None, count=1):
+    def add_connections_old(self, from_layer=None, to_layer=None, count=1):
         attempts = 0
         added_connections = 0
         max_attempts = self.max_attempts()
@@ -104,6 +104,48 @@ class Genome:
 
             attempts += 1
 
+    def add_connections(self, from_layer=None, to_layer=None, count=1):
+        attempts = 0
+        added_connections = 0
+        max_attempts = self.max_attempts()
+
+        # Maintain a set of all existing connections
+        existing_connections = {(conn.from_neuron, conn.to_neuron) for conn in self.connection_genes.values()}
+
+        while added_connections != count and attempts < max_attempts:
+
+            from_neurons = []
+            to_neurons = []
+
+            if from_layer and to_layer:
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer and neuron.enabled]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer and neuron.enabled]
+
+            else:
+                from_layers = ["input", "hidden"]
+                attempting_from_layer = random.choice(from_layers)
+                if attempting_from_layer == "input":
+                    attempting_to_layer = "hidden"
+                else:
+                    attempting_to_layer = random.choice(["hidden", "output"])
+
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer and neuron.enabled]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer and neuron.enabled]
+
+            from_neuron = random.choice(from_neurons)
+            to_neuron = random.choice(to_neurons)
+
+            if (from_neuron.id, to_neuron.id) not in existing_connections:
+                new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
+                self.connection_genes[new_connection.innovation] = new_connection
+                added_connections += 1
+
+                # Add the new connection to the set of existing connections
+                existing_connections.add((from_neuron.id, to_neuron.id))
+
+            attempts += 1
+
+
     def crossover(self, other_genome):
         offspring = Genome()
 
@@ -138,20 +180,23 @@ class Genome:
             offspring_gene = None
 
             if gene1 and gene2:
-                # If both parents have the gene
-                if more_fit_parent:
-                    # if more fit exist, take the gene from the more fit parent
-                    parent_gene = gene1 if more_fit_parent == self else gene2
-                    offspring_gene = parent_gene.copy(keep_innovation=True)
-                else:
-                    # if there is no more fit parent
-                    if not gene1.enabled or not gene2.enabled:
-                        # and if one of the parents has the gene disabled, there is a chance that the offspring will have a random parent's gene disabled
-                        offspring_gene = random.choice([gene1, gene2]).copy(keep_innovation=True)
-                        offspring_gene.enabled = (False if random.random() < config.matching_disabled_connection_chance else offspring_gene.enabled)
+
+                if gene1.from_neuron == gene2.from_neuron and gene1.to_neuron == gene2.to_neuron:
+                    if more_fit_parent:
+                        parent_gene = gene1 if more_fit_parent == self else gene2
+                        offspring_gene = parent_gene.copy(keep_innovation=True)
                     else:
-                        # otherwise, randomly take the gene from one of the parents
                         offspring_gene = random.choice([gene1, gene2]).copy(keep_innovation=True)
+                else:
+                    if more_fit_parent:
+                        parent_gene = gene1 if more_fit_parent == self else gene2
+                        offspring_gene = parent_gene.copy(keep_innovation=True)
+                    else:
+                        if not gene1.enabled or not gene2.enabled:
+                            offspring_gene = random.choice([gene1, gene2]).copy(keep_innovation=True)
+                            offspring_gene.enabled = (False if random.random() < config.matching_disabled_connection_chance else offspring_gene.enabled)
+                        else:
+                            offspring_gene = random.choice([gene1, gene2]).copy(keep_innovation=True)
 
             elif gene1 or gene2:
                 # If only one parent has the gene (disjoint or excess)
