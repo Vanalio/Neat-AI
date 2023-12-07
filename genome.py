@@ -1,5 +1,6 @@
 import random
 import pickle
+import sys
 
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
@@ -50,7 +51,6 @@ class Genome:
         return max_attempts
 
     def add_connections(self, from_layer=None, to_layer=None, count=1):
-        #print(f"Adding connection to genome {self.id} from layer {from_layer} to layer {to_layer}")
         attempts = 0
         added_connections = 0
         max_attempts = self.max_attempts()
@@ -61,8 +61,9 @@ class Genome:
             to_neurons = []
 
             if from_layer and to_layer:
-                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer]
-                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer]
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == from_layer and neuron.enabled]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == to_layer and neuron.enabled]
+
             else:
                 from_layers = ["input", "hidden"]
                 attempting_from_layer = random.choice(from_layers)
@@ -71,16 +72,33 @@ class Genome:
                 else:
                     attempting_to_layer = random.choice(["hidden", "output"])
 
-                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer]
-                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer]
+                from_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_from_layer and neuron.enabled]
+                to_neurons = [neuron for neuron in self.neuron_genes.values() if neuron.layer == attempting_to_layer and neuron.enabled]
 
             from_neuron = random.choice(from_neurons)
             to_neuron = random.choice(to_neurons)
-
             existing_connection = any(conn.from_neuron == from_neuron.id and conn.to_neuron == to_neuron.id for conn in self.connection_genes.values())
 
             if not existing_connection:
                 new_connection = ConnectionGene(from_neuron.id, to_neuron.id)
+                if len(self.connection_genes) > self.max_total_connections():
+                    print(f"\n****************************************************************************************\n"
+                          f"Connection with innovation {new_connection.innovation} wrongly added to genome {self.id}\n"
+                          f"****************************************************************************************\n")
+                    print(f"Attempting from layer: {attempting_from_layer}")
+                    print(f"Attempting to layer: {attempting_to_layer}")
+                    print(f"From neurons id: {[neuron.id for neuron in from_neurons]}")
+                    print(f"To neurons id: {[neuron.id for neuron in to_neurons]}")
+                    print(f"Chosen from neuron id: {from_neuron.id}")
+                    print(f"Chosen to neuron id: {to_neuron.id}")
+                    print(f"Input neurons id: {[neuron.id for neuron in self.neuron_genes.values() if neuron.layer == 'input']}")
+                    print(f"Output neurons id: {[neuron.id for neuron in self.neuron_genes.values() if neuron.layer == 'output']}")
+                    print(f"Hidden neurons id: {[neuron.id for neuron in self.neuron_genes.values() if neuron.layer == 'hidden']}")
+                    for n in self.neuron_genes.values():
+                        print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
+                    for c in self.connection_genes.values():
+                        print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
+                    sys.exit()    
                 self.connection_genes[new_connection.innovation] = new_connection
                 added_connections += 1
 
@@ -190,6 +208,7 @@ class Genome:
 
     def mutate(self):
         if random.random() < config.connection_add_chance:
+            print(f"Adding connection to genome {self.id} due to mutation")
             self.mutate_add_connection()
 
         if random.random() < config.neuron_add_chance:
@@ -212,12 +231,7 @@ class Genome:
 
     def mutate_add_connection(self):
 
-        connection_types = [
-            lambda: self.add_connections(from_layer="input", to_layer="hidden", count=1),
-            lambda: self.add_connections(from_layer="hidden", to_layer="hidden", count=1),
-            lambda: self.add_connections(from_layer="hidden", to_layer="output", count=1)
-        ]
-        random.choice(connection_types)()
+        self.add_connections(count=1)
 
     def mutate_add_neuron(self):
 

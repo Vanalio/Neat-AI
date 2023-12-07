@@ -34,8 +34,8 @@ class Species:
             for _ in range(offspring_count):
                 # Select two parent genomes based on rank from the list
                 parent1, parent2 = random.choices(genome_list, weights=weights, k=2)
+                print("Crossing over genomes {} and {}.".format(parent1.id, parent2.id))
                 new_genome = parent1.crossover(parent2)
-                new_genome.mutate()
                 offspring[new_genome.id] = new_genome
 
         return offspring
