@@ -268,6 +268,7 @@ class Population:
                     f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
                     f"AVG --> shared fitness: {int(species.average_shared_fitness)}, connections: {avg_connections}, matching: {avg_matching_connections}, hidden neurons: {avg_neurons}"
                 )
+                print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
         # count current number of species
         if self.best_genome:
             print(
@@ -276,7 +277,7 @@ class Population:
                   f"dis conn: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
                   f"dis neur: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
                  )
-            print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
+            
             #print id activation and bias of only hidden and output neurons!
             for n in self.best_genome.neuron_genes.values():
                 if n.layer != "input":
