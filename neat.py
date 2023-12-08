@@ -62,10 +62,7 @@ if __name__ == "__main__":
     elif args.test:
         # Load and test/render the specific genome
         genome = Genome.load_from_file(args.test)
-        # add genome to a new population
-        population = Population(initial=False)
-        population.genomes.append(genome)
-        population.render_genome(genome)
+        ...
 
     else:
         # Run the NEAT algorithm normally
