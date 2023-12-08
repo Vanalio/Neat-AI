@@ -14,7 +14,13 @@ config = Config("config.ini", "DEFAULT")
 def neat():
     
     print("#############################################")
-    print(f"# NEAT ALGORITHM\n# Population size: {config.population_size}\n# Generations: {config.generations}\n# Run mode: {config.run_mode}\n#")
+    print(
+          f"# NEAT ALGORITHM\n# Population size: {config.population_size}\n",
+          f"# Generations: {config.generations}\n",
+          f"# Batch size: {config.batch_size}\n",
+          f"# Run mode: {config.run_mode}\n",
+          f"#"
+         )
 
     population = Population(initial=True)
 
