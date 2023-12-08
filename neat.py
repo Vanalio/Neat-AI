@@ -33,9 +33,10 @@ def neat():
             random_key = random.choice(list(population.genomes.keys()))
             test_genome = population.genomes[random_key]
         
-        _, fitness = population.evaluate_genome(genome, batch_size=1, render_mode="human")
+        population.evaluate_genome(test_genome, batch_size=1, render_mode="human")
+        
         visualizer.visualize_genome(test_genome)
-        visualizer.plot_fitness(generation, fitness)
+        visualizer.plot_fitness(generation, test_genome.fitness)
 
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"saves/population_gen_{generation}.pkl")

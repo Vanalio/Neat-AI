@@ -133,10 +133,16 @@ class Population:
             self.evaluate_dumb()
         else:
             raise ValueError("No valid evaluation method specified.")
+        
+        # calculate fitness for each genome
+        for genome in self.genomes.values():
+            genome.fitness = self.relu_offset(genome.total_reward)
+            print(f"Genome {genome.id}: total reward {genome.total_reward}, fitness {genome.fitness}")
 
     def evaluate_serial(self):
         for genome in self.genomes.values():
-            _, genome.fitness = self.evaluate_genome(genome)
+            _, total_reward = self.evaluate_genome(genome)
+            genome.total_reward = total_reward
 
     def evaluate_parallel(self):
         with multiprocessing.Pool(config.procs) as pool:
@@ -147,12 +153,12 @@ class Population:
             results = pool.starmap(self.evaluate_genome, args)
 
             # Process the results to update fitness values
-            for genome_id, fitness in results:
-                self.genomes[genome_id].fitness = fitness
+            for genome_id, total_reward in results:
+                self.genomes[genome_id].total_reward = total_reward
 
     def evaluate_dumb(self):
         for genome in self.genomes.values():
-            genome.fitness = 1
+            genome.total_reward = 1
 
     def evaluate_genome(self, genome, batch_size=config.batch_size, render_mode=None):
         environments = [gym.make("LunarLander-v2", render_mode=render_mode, ) for _ in range(batch_size)]
@@ -169,27 +175,19 @@ class Population:
 
         done = [False] * batch_size
         total_rewards = [0] * batch_size
-        min_reward, max_reward = float('inf'), float('-inf')
 
         while not all(done):
-            #print observations_tensor
-            print(f"\nobservations_tensor: {observations_tensor}")
             output_logits = neural_network.forward_batch(observations_tensor)
-            print(f"output_logits: {output_logits}")
             action_probabilities = F.softmax(output_logits, dim=1)
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
-
+ 
             new_observations, new_rewards, new_done = [], [], []
             for i, (environment, action) in enumerate(zip(environments, actions)):
                 if not done[i]:
                     observation, reward, terminated, truncated, _ = environment.step(action)
                     new_observations.append(observation)
-                    new_rewards.append(reward)
+                    total_rewards[i] += reward
                     new_done.append(terminated or truncated)
-
-                    # Update min and max rewards
-                    min_reward = min(min_reward, reward)
-                    max_reward = max(max_reward, reward)
                 else:
                     new_observations.append(observations[i])
                     new_rewards.append(0)
@@ -197,21 +195,16 @@ class Population:
 
             observations = new_observations
             done = new_done
-            total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
             observations_tensor = torch.tensor(np.array(new_observations), dtype=torch.float32)
-
+        
+        neural_network.reset_states()
+        
         for environment in environments:
             environment.close()
 
-        # Normalize rewards if there is a range
-        if max_reward > min_reward:
-            normalized_rewards = [(reward - min_reward) / (max_reward - min_reward) for reward in total_rewards]
-        else:
-            normalized_rewards = [0.5 for _ in total_rewards]  # Handle edge case where all rewards are the same
+        avg_reward = sum(total_rewards) / batch_size
 
-        fitness = sum(normalized_rewards) / len(normalized_rewards)
-        print(f"Genome {genome.id} fitness: {fitness}\n")
-        return genome.id, fitness
+        return genome.id, avg_reward
 
     def relu_offset(self, reward):
         return max(0, reward + config.fitness_offset)

@@ -1,6 +1,5 @@
 import random
 import pickle
-import sys
 
 from torch_activation_functions import ActivationFunctions as activation_functions
 from managers import IdManager
@@ -16,6 +15,7 @@ class Genome:
         self.id = IdManager.get_new_id()
         self.neuron_genes = {}
         self.connection_genes = {}
+        self.total_reward = None
         self.fitness = None
         self.species_id = None
         matching_connections = None
@@ -264,7 +264,7 @@ class Genome:
     def mutate_bias(self):
 
         gene_to_mutate = random.choice(
-            [gene for gene in self.neuron_genes.values() if gene.layer == "hidden"]
+            [gene for gene in self.neuron_genes.values() if gene.layer != "input"]
         )
 
         if random.random() < config.bias_perturb_vs_set_chance:
