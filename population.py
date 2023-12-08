@@ -194,8 +194,6 @@ class Population:
         else:
             raise ValueError("No valid evaluation method specified.")
 
-        self.relu_offset_fitness()
-
     def evaluate_serial(self):
         for genome in self.genomes.values():
             _, genome.fitness = self.evaluate_genome_batch(genome)
@@ -258,7 +256,7 @@ class Population:
 
             observations = new_observations
             done = new_done
-            total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
+            total_rewards = [total_reward + self.relu_offset(reward) for total_reward, reward in zip(total_rewards, new_rewards)]
 
             # Convert the new observations list to a numpy array
             observations_array = np.array(new_observations)
@@ -273,10 +271,8 @@ class Population:
 
         return genome.id, fitness
 
-    def relu_offset_fitness(self):
-
-        for _, genome in self.genomes.items():
-            genome.fitness = max(0, genome.fitness + config.fitness_offset)
+    def relu_offset(self, reward):
+        return max(0, reward + config.fitness_offset)
 
     def sort_and_stats(self):
         for _, species in self.species.items():
