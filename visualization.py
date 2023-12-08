@@ -4,7 +4,7 @@ import networkx as nx
 
 class NeatVisualizer:
     def __init__(self):
-        self.reward_data = []
+        self.fitness_data = []
         self.fig, self.ax = plt.subplots(1, 2, figsize=(12, 6))
 
     def visualize_genome(self, genome):
@@ -65,15 +65,15 @@ class NeatVisualizer:
 
         self.ax[0].set_title("Genome Structure")
 
-    def plot_rewards(self, generation, total_reward):
-        self.reward_data.append((generation, total_reward))
-        generations, rewards = zip(*self.reward_data)
+    def plot_fitness(self, generation, fitness):
+        self.fitness_data.append((generation, fitness))
+        generations, fitness_values = zip(*self.fitness_data)
 
         self.ax[1].cla()  # Clear the current plot
-        self.ax[1].plot(generations, rewards, "-o")
-        self.ax[1].set_title("Total Rewards over Generations")
+        self.ax[1].plot(generations, fitness_values, "-o")
+        self.ax[1].set_title("Fitness over Generations")
         self.ax[1].set_xlabel("Generation")
-        self.ax[1].set_ylabel("Total Reward")
+        self.ax[1].set_ylabel("Fitness")
 
         plt.draw()
         plt.pause(0.01)

@@ -1,5 +1,6 @@
 import argparse
-import multiprocessing  
+import multiprocessing
+import random
 
 from population import Population
 from genome import Genome
@@ -23,9 +24,18 @@ def neat():
 
         population.evolve()
 
-        test_genome_reward = population.render_genome(population.best_genome)
-        visualizer.visualize_genome(population.best_genome)
-        visualizer.plot_rewards(generation, test_genome_reward)
+        # best genome exists, test genome is best genome, otherwise test genome is taken randomly from population
+        if population.best_genome is not None:
+            test_genome = population.best_genome
+        else:
+            print("******** No best genome found, testing random genome ********")
+            # Select a random key from the dictionary
+            random_key = random.choice(list(population.genomes.keys()))
+            test_genome = population.genomes[random_key]
+        
+        _, fitness = population.evaluate_genome(genome, batch_size=1, render_mode="human")
+        visualizer.visualize_genome(test_genome)
+        visualizer.plot_fitness(generation, fitness)
 
         if generation % config.population_save_interval == 0:
             population.save_genomes_to_file(f"saves/population_gen_{generation}.pkl")

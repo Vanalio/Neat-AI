@@ -124,66 +124,6 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
-    def render_genome(self, genome):
-        single_batch = 1
-        environments = [gym.make("LunarLander-v2", render_mode="human", ) for _ in range(single_batch)]
-        observations = [environment.reset(seed = self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
-
-        if isinstance(observations[0], tuple):
-            observations = [observation[0] for observation in observations]
-
-        # Convert the list of numpy arrays to a single numpy array
-        observations_array = np.array(observations)
-
-        # Convert the numpy array to a PyTorch tensor
-        observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
-
-        neural_network = NeuralNetwork(genome)
-        neural_network.reset_states()
-
-        done = [False] * single_batch
-        total_rewards = [0] * single_batch
-        step = 0
-        while not all(done):
-            output_logits = neural_network.forward_batch(observations_tensor)
-            action_probabilities = F.softmax(output_logits, dim=1)
-            actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
-
-            new_observations = []
-            new_rewards = []
-            new_done = []
-            for i, (environment, action) in enumerate(zip(environments, actions)):
-                if not done[i]:  # Only process environments that are not done
-                    observation, reward, terminated, truncated, _ = environment.step(action)
-                    new_observations.append(observation)
-                    new_rewards.append(reward)
-                    new_done.append(terminated or truncated)
-                else:
-                    # Append existing values for environments that are done
-                    new_observations.append(observations[i])
-                    new_rewards.append(0)  # No additional reward
-                    new_done.append(True)  # Remains done
-                step += 1
-
-            observations = new_observations
-            done = new_done
-            total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
-
-            # Convert the new observations list to a numpy array
-            observations_array = np.array(new_observations)
-
-            # Convert the numpy array to a PyTorch tensor and assign it to observations_tensor
-            observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
-
-        for environment in environments:
-            environment.close()
-        
-        fitness = sum(total_rewards) / len(total_rewards)
-
-        print(f"Genome {genome.id} fitness: {fitness}")
-
-        return fitness
-        
     def evaluate(self):
         if config.run_mode == "parallel":
             self.evaluate_parallel()
@@ -196,7 +136,7 @@ class Population:
 
     def evaluate_serial(self):
         for genome in self.genomes.values():
-            _, genome.fitness = self.evaluate_genome_batch(genome)
+            _, genome.fitness = self.evaluate_genome(genome)
 
     def evaluate_parallel(self):
         with multiprocessing.Pool(config.procs) as pool:
@@ -204,7 +144,7 @@ class Population:
             args = [(genome,) for genome in self.genomes.values()]
 
             # Map the function across the genomes
-            results = pool.starmap(self.evaluate_genome_batch, args)
+            results = pool.starmap(self.evaluate_genome, args)
 
             # Process the results to update fitness values
             for genome_id, fitness in results:
@@ -214,61 +154,63 @@ class Population:
         for genome in self.genomes.values():
             genome.fitness = 1
 
-    def evaluate_genome_batch(self, genome):
-        environments = [gym.make("LunarLander-v2", ) for _ in range(config.batch_size)]
-        observations = [environment.reset(seed = self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
+    def evaluate_genome(self, genome, batch_size=config.batch_size, render_mode=None):
+        environments = [gym.make("LunarLander-v2", render_mode=render_mode, ) for _ in range(batch_size)]
+        observations = [environment.reset(seed=self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
 
         if isinstance(observations[0], tuple):
             observations = [observation[0] for observation in observations]
 
-        # Convert the list of numpy arrays to a single numpy array
         observations_array = np.array(observations)
-
-        # Convert the numpy array to a PyTorch tensor
         observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
 
         neural_network = NeuralNetwork(genome)
         neural_network.reset_states()
 
-        done = [False] * config.batch_size
-        total_rewards = [0] * config.batch_size
-        step = 0
+        done = [False] * batch_size
+        total_rewards = [0] * batch_size
+        min_reward, max_reward = float('inf'), float('-inf')
+
         while not all(done):
+            #print observations_tensor
+            print(f"\nobservations_tensor: {observations_tensor}")
             output_logits = neural_network.forward_batch(observations_tensor)
+            print(f"output_logits: {output_logits}")
             action_probabilities = F.softmax(output_logits, dim=1)
             actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
 
-            new_observations = []
-            new_rewards = []
-            new_done = []
+            new_observations, new_rewards, new_done = [], [], []
             for i, (environment, action) in enumerate(zip(environments, actions)):
-                if not done[i]:  # Only process environments that are not done
+                if not done[i]:
                     observation, reward, terminated, truncated, _ = environment.step(action)
                     new_observations.append(observation)
                     new_rewards.append(reward)
                     new_done.append(terminated or truncated)
+
+                    # Update min and max rewards
+                    min_reward = min(min_reward, reward)
+                    max_reward = max(max_reward, reward)
                 else:
-                    # Append existing values for environments that are done
                     new_observations.append(observations[i])
-                    new_rewards.append(0)  # No additional reward
-                    new_done.append(True)  # Remains done
-                step += 1
+                    new_rewards.append(0)
+                    new_done.append(True)
 
             observations = new_observations
             done = new_done
-            total_rewards = [total_reward + self.relu_offset(reward) for total_reward, reward in zip(total_rewards, new_rewards)]
-
-            # Convert the new observations list to a numpy array
-            observations_array = np.array(new_observations)
-
-            # Convert the numpy array to a PyTorch tensor and assign it to observations_tensor
-            observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
+            total_rewards = [total_reward + reward for total_reward, reward in zip(total_rewards, new_rewards)]
+            observations_tensor = torch.tensor(np.array(new_observations), dtype=torch.float32)
 
         for environment in environments:
             environment.close()
-        
-        fitness = sum(total_rewards) / len(total_rewards)
 
+        # Normalize rewards if there is a range
+        if max_reward > min_reward:
+            normalized_rewards = [(reward - min_reward) / (max_reward - min_reward) for reward in total_rewards]
+        else:
+            normalized_rewards = [0.5 for _ in total_rewards]  # Handle edge case where all rewards are the same
+
+        fitness = sum(normalized_rewards) / len(normalized_rewards)
+        print(f"Genome {genome.id} fitness: {fitness}\n")
         return genome.id, fitness
 
     def relu_offset(self, reward):
