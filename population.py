@@ -32,10 +32,10 @@ class Population:
     def _initialize_neurons(self):
         self.input_ids = [IdManager.get_new_id() for _ in range(config.input_neurons)]
         self.output_ids = [IdManager.get_new_id() for _ in range(config.output_neurons)]
-        print("# Initial population neurons:")
-        print("# INPUT:", len(self.input_ids), self.input_ids)
-        print("# OUTPUT:", len(self.output_ids), self.output_ids)
-        print("# HIDDEN:", config.hidden_neurons, "\n#############################################\n")
+        print(" # Initial population neurons:")
+        print(" # INPUT:", len(self.input_ids), self.input_ids)
+        print(" # OUTPUT:", len(self.output_ids), self.output_ids)
+        print(" # HIDDEN:", config.hidden_neurons, "\n #############################################\n")
 
     def _initial_population(self):
         for _ in range(config.population_size):
