@@ -54,6 +54,7 @@ class Population:
             self.speciate()
             self.remove_empty_species()
             tries += 1
+            print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
 
             if len(self.species) == previous_species_count:
                 stabilizing += 1

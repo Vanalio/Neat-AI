@@ -2,7 +2,6 @@
 
 ## FIXME
 
-- BEST GENOME: 253932, Fitness: 47228.408363353024, connections: 18, hidden neurons: 1 ???
 - add connections is possibly broken
 - refactor from_neuron, to neuron to from_neuron_id, to_neuron_id
 - move render genome to visualizer, then fix the entire visualizer (included load from file)
@@ -10,7 +9,6 @@
 ## ADD
 
 - use __str__
-- more details on best genome printout (activation functions and biases)
 
 - option to mutate or not and to initialize to fixed or random:
     default_hidden_activation  = random
