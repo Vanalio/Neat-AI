@@ -110,7 +110,6 @@ class Population:
             if species_ratio < 1.0
             else 1.0 + config.distance_adj_factor
         )
-        print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
 
         config.distance_threshold *= adjustment_factor
 
@@ -137,7 +136,7 @@ class Population:
         # calculate fitness for each genome
         for genome in self.genomes.values():
             genome.fitness = self.relu_offset(genome.total_reward)
-            print(f"Genome {genome.id}: total reward {genome.total_reward}, fitness {genome.fitness}")
+            #print(f"Genome {genome.id}: total reward {genome.total_reward}, fitness {genome.fitness}")
 
     def evaluate_serial(self):
         for genome in self.genomes.values():
@@ -276,11 +275,14 @@ class Population:
                   f"hid neur: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}, "
                   f"dis conn: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
                   f"dis neur: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
-                 ) 
+                 )
+            print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
+            #print id activation and bias of only hidden and output neurons!
             for n in self.best_genome.neuron_genes.values():
-                print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
-            for c in self.best_genome.connection_genes.values():
-                print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
+                if n.layer != "input":
+                    print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
+            #for c in self.best_genome.connection_genes.values():
+                #print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
                 
     def prune(self):
         self.prune_genomes_from_species()
