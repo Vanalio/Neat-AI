@@ -39,6 +39,28 @@ class NeuralNetwork(nn.Module):
         self.weight_matrix = torch.zeros(num_neurons, num_neurons, dtype=torch.float32, device=self.device)
         self.biases = torch.zeros(num_neurons, dtype=torch.float32, device=self.device)
 
+        for conn in connection_genes:
+            if not conn.enabled:
+                continue
+
+            from_neuron = conn.from_neuron
+            to_neuron = conn.to_neuron
+
+            if from_neuron not in self.neurons or to_neuron not in self.neurons:
+                # Skipping connections that refer to disabled or non-existing neurons
+                continue
+
+            try:
+                from_index = self.neuron_id_to_index[from_neuron]
+                to_index = self.neuron_id_to_index[to_neuron]
+            except KeyError as e:
+                print(f"KeyError for neuron ID: {e.args[0]}")
+                print(f"From Neuron: {from_neuron}, To Neuron: {to_neuron}")
+                continue  # or raise an exception if you prefer
+
+            self.weight_matrix[from_index, to_index] = conn.weight
+            self.biases[to_index] = self.neurons[to_neuron].bias
+
         for conn in filter(lambda c: c.enabled, connection_genes):
             from_index = self.neuron_id_to_index[conn.from_neuron]
             to_index = self.neuron_id_to_index[conn.to_neuron]
