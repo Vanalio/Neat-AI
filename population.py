@@ -257,17 +257,19 @@ class Population:
 
     def print_population_info(self):
         for _, species in self.species.items():
-            if species.genomes or species.elites:
+            if species.genomes:
                 
-                # calculate average number of total and matching connections and hidden neurons of genomes in species not using avg() function
-                avg_connections = int(sum([len(genome.connection_genes) for genome in species.genomes.values()]) / len(species.genomes))
-                avg_matching_connections = int(sum([genome.matching_connections for genome in species.genomes.values()]) / len(species.genomes))
-                avg_neurons = int(sum([len(genome.neuron_genes) for genome in species.genomes.values()]) / len(species.genomes)) - config.input_neurons - config.output_neurons
+                species_genomes = len(species.genomes)
+                avg_connections = int(sum([len(genome.connection_genes) for genome in species.genomes.values()]) / species_genomes)
+                avg_neurons = int(sum([len(genome.neuron_genes) for genome in species.genomes.values()]) / species_genomes) - config.input_neurons - config.output_neurons
+                avg_disabled_neurons = int(sum([len([n for n in genome.neuron_genes.values() if not n.enabled]) for genome in species.genomes.values()]) / species_genomes)
+                avg_disabled_connections = int(sum([len([c for c in genome.connection_genes.values() if not c.enabled]) for genome in species.genomes.values()]) / species_genomes)
+                avg_matching_connections = int(sum([genome.matching_connections for genome in species.genomes.values()]) / species_genomes)
                 
                 print(
                     f"Species: {species.id}, Age: {species.age}", \
                     f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
-                    f"AVG --> shared fitness: {int(species.average_shared_fitness)}, connections: {avg_connections}, matching: {avg_matching_connections}, hidden neurons: {avg_neurons}"
+                    f"AVG --> shared fitness: {int(species.average_shared_fitness)}, conn: {avg_connections}, dis conn: {avg_disabled_connections}, matching: {avg_matching_connections}, hidden neurons: {avg_neurons}, dis neur: {avg_disabled_neurons}"
                 )
 
         print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
