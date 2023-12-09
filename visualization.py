@@ -43,10 +43,12 @@ class NeatVisualizer:
                 color = "skyblue" if neuron_gene.layer == "input" else "lightgreen" if neuron_gene.layer == "output" else "lightgrey"
                 G.add_node(neuron_id, color=color, style="filled", shape="circle", activation=neuron_gene.activation)
 
-        # Modify edge addition to include weight
         edge_weights = []
         for _, conn_gene in genome.connection_genes.items():
-            if conn_gene.enabled:
+            # check if connection gene is enabled and from/to neurons exist
+            if not conn_gene.enabled or conn_gene.from_neuron not in G.nodes or conn_gene.to_neuron not in G.nodes:
+                continue
+            else:
                 G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron)
                 edge_weights.append(abs(conn_gene.weight))  # use absolute value for visualization
 

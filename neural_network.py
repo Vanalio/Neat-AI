@@ -54,18 +54,12 @@ class NeuralNetwork(nn.Module):
                 from_index = self.neuron_id_to_index[from_neuron]
                 to_index = self.neuron_id_to_index[to_neuron]
             except KeyError as e:
-                print(f"KeyError for neuron ID: {e.args[0]}")
+                print(f"KeyError in connection gene. KeyError: {e.args[0]}")
                 print(f"From Neuron: {from_neuron}, To Neuron: {to_neuron}")
-                continue  # or raise an exception if you prefer
+                continue  # Skip this iteration if a KeyError occurs
 
             self.weight_matrix[from_index, to_index] = conn.weight
             self.biases[to_index] = self.neurons[to_neuron].bias
-
-        for conn in filter(lambda c: c.enabled, connection_genes):
-            from_index = self.neuron_id_to_index[conn.from_neuron]
-            to_index = self.neuron_id_to_index[conn.to_neuron]
-            self.weight_matrix[from_index, to_index] = conn.weight
-            self.biases[to_index] = self.neurons[conn.to_neuron].bias
 
     def forward_batch(self, input_values):
         if self.neuron_states is None:

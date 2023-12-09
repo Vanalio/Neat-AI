@@ -170,7 +170,12 @@ class Population:
         observations_array = np.array(observations)
         observations_tensor = torch.tensor(observations_array, dtype=torch.float32)
 
-        neural_network = NeuralNetwork(genome)
+        try:
+            neural_network = NeuralNetwork(genome)
+        except KeyError as e:
+            print(f"Error processing genome. KeyError: {e.args[0]}")
+            print(f"Genome details: {genome}")
+
         neural_network.reset_states()
 
         done = [False] * batch_size
