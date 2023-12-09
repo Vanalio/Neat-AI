@@ -2,6 +2,7 @@
 
 ## FIXME
 
+- remove neuron
 - add connections is possibly broken
 - refactor from_neuron, to neuron to from_neuron_id, to_neuron_id
 - move render genome to visualizer, then fix the entire visualizer (included load from file)
