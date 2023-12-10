@@ -11,11 +11,14 @@ class NeuronGene:
         self.id = neuron_id if neuron_id is not None else IdManager.get_new_id()
         self.layer = layer
         if layer == "output":
-            self.activation = config.default_output_activation
+            # self.activation is randomly chosen from activation_functions.bipolar_functions() if default_output_activation = random
+            # otherwise, self.activation is default_output_activation
+            self.activation = random.choice(activation_functions.bipolar_functions()) if config.default_output_activation == "random" else config.default_output_activation
             self.bias = random.uniform(*config.bias_init_range)
-            #self.bias = 0
         elif layer == "hidden":
-            self.activation = random.choice(activation_functions.get_activation_functions())
+            # self.activation is randomly chosen from activation_functions.brain_functions() if default_hidden_activation = random
+            # otherwise, self.activation is default_hidden_activation
+            self.activation = random.choice(activation_functions.brain_functions()) if config.default_hidden_activation == "random" else config.default_hidden_activation
             self.bias = random.uniform(*config.bias_init_range)
         else:
             self.activation = "identity"

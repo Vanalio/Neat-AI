@@ -8,8 +8,12 @@ config = Config("config.ini", "DEFAULT")
 
 class ActivationFunctions:
     @staticmethod
-    def get_activation_functions():
+    def brain_functions():
         return ["brain_relu", "brain_sigmoid", "brain_tanh", "brain_softsign", "brain_arctan"]
+
+    @staticmethod
+    def bipolar_functions():
+        return ["tanh", "bipolar_sigmoid", "softsign", "bipolar_arctan"]
 
     @staticmethod
     def brain_sigmoid(x):
@@ -48,6 +52,10 @@ class ActivationFunctions:
         return torch.sigmoid(x)
 
     @staticmethod
+    def bipolar_sigmoid(x):
+        return 2 * torch.sigmoid(x) - 1
+
+    @staticmethod
     def softplus(x):
         return torch.nn.functional.softplus(x)
 
@@ -62,6 +70,10 @@ class ActivationFunctions:
     @staticmethod
     def arctan(x):
         return torch.atan(x)
+
+    @staticmethod    
+    def bipolar_arctan(x):
+        return 2 * torch.atan(x) / torch.tensor(np.pi)
 
     @staticmethod
     def identity(x):

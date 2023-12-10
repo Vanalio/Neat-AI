@@ -262,28 +262,21 @@ class Genome:
             gene_to_mutate.weight = random.uniform(*config.weight_init_range)
 
     def mutate_bias(self):
-
-        gene_to_mutate = random.choice(
-            [gene for gene in self.neuron_genes.values() if gene.layer != "input"]
-        )
-
+        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer != "input"])
         if random.random() < config.bias_perturb_vs_set_chance:
-            gene_to_mutate.bias = (
-                random.uniform(-1, 1) * config.max_abs_bias_mutate_factor * gene_to_mutate.bias
-            )
-
+            gene_to_mutate.bias = (random.uniform(-1, 1) * config.max_abs_bias_mutate_factor * gene_to_mutate.bias)
         else:
             gene_to_mutate.bias = random.uniform(*config.bias_init_range)
 
     def mutate_activation_function(self):
-        available_functions = activation_functions.get_activation_functions()
-        gene_to_mutate = random.choice(
-            [gene for gene in self.neuron_genes.values() if gene.layer == "hidden"]
-        )
+        layers_to_mutate = []
+        if config.mutate_output_activations:
+            layers_to_mutate.append("output")
+        if config.mutate_hidden_activations:
+            layers_to_mutate.append("hidden")
+        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer == random.choice(layers_to_mutate)])
+        available_functions = activation_functions.brain_functions() if gene_to_mutate.layer == "hidden" else activation_functions.bipolar_functions()
         gene_to_mutate.activation = random.choice(available_functions)
-        #print(
-        #    f"Set activation function of neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.activation}"
-        #)
 
     def mutate_connection_toggle(self):
         gene_to_mutate = random.choice(
@@ -388,7 +381,14 @@ class Genome:
 
         # Calculate the genetic distance
         N = max(len(self_connections), len(other_connections), 1)
-        distance = (config.disjoint_coefficient * disjoint_connections + config.excess_coefficient * excess_connections) / N + config.activation_diff_coefficient * activation_diff + config.weight_diff_coefficient * weight_diff + config.bias_diff_coefficient * bias_diff
+
+        distance = (
+            (config.disjoint_diff_coefficient * disjoint_connections + 
+            config.excess_diff_coefficient * excess_connections) / N +
+            config.activation_diff_coefficient * activation_diff +
+            config.weight_diff_coefficient * weight_diff +
+            config.bias_diff_coefficient * bias_diff
+        )
 
         return distance, matching_connections
 

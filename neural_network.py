@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from torch_activation_functions import ActivationFunctions
+from torch_activation_functions import ActivationFunctions as activation_functions
 
 from config import Config
 
@@ -90,7 +90,7 @@ class NeuralNetwork(nn.Module):
             neuron_index = self.neuron_id_to_index[neuron_id]
 
             # Try to get the activation function from custom ActivationFunctions class
-            activation_func = getattr(ActivationFunctions, neuron.activation, None)
+            activation_func = getattr(activation_functions, neuron.activation, None)
 
             # If not found in custom, try to get it from torch.nn.functional
             if activation_func is None:

@@ -286,8 +286,7 @@ class Population:
                   f"dis conn: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
                   f"dis neur: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
                  )
-            
-            #print id activation and bias of only hidden and output neurons!
+
             for n in self.best_genome.neuron_genes.values():
                 if n.layer != "input":
                     print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
