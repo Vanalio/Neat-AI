@@ -42,7 +42,7 @@ def neat():
         
         population.evaluate_genome(test_genome, batch_size=1, render_mode="human", max_episode_steps=500)
         
-        visualizer.visualize_genome(test_genome)
+        visualizer.visualize_network(test_genome)
         visualizer.plot_fitness(generation, test_genome.fitness)
 
         if generation % config.population_save_interval == 0:
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     if args.visualize:
         # Load and visualize the genome
         genome = Genome.load_from_file(args.visualize)
-        visualizer.visualize_genome(genome)
+        visualizer.visualize_network(genome)
 
     elif args.test:
         # Load and test/render the specific genome

@@ -7,7 +7,7 @@ class NeatVisualizer:
         self.fitness_data = []
         self.fig, self.ax = plt.subplots(1, 2, figsize=(12, 6))
 
-    def visualize_genome(self, genome, fixed_connection_tickness=True, fixed_neuron_size=False, 
+    def visualize_network(self, genome, fixed_connection_tickness=True, fixed_neuron_size=False, 
                         default_connection_tickness=0.1, default_neuron_size=100, max_connection_tickness=5, max_neuron_size=600):
         self.ax[0].cla()
         G = nx.DiGraph()
@@ -15,7 +15,7 @@ class NeatVisualizer:
         # Define x-coordinates for each layer
         left_x = 0.1  # X-coordinate for input neurons
         right_x = 0.9  # X-coordinate for output neurons
-        center_x_range = (0.3, 0.7)  # X-coordinate range for hidden neurons
+        center_x_range = (0.2, 0.8)  # X-coordinate range for hidden neurons
 
         # Function to calculate y-positions for input/output neurons
         def calculate_y_positions(neurons, start_y, end_y, x_pos):
@@ -79,7 +79,7 @@ class NeatVisualizer:
             if data.get('activation') and data['activation'] != 'identity':
                 self.ax[0].text(pos[node][0], pos[node][1]+0.05, data['activation'], horizontalalignment='center')
 
-        self.ax[0].set_title("Genome Structure")
+        self.ax[0].set_title("Neural Network")
 
     def plot_fitness(self, generation, fitness):
         self.fitness_data.append((generation, fitness))
