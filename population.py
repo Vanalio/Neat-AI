@@ -2,6 +2,7 @@ import multiprocessing
 import random
 import pickle
 import gymnasium as gym
+from gymnasium.wrappers import TransformReward
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -160,7 +161,7 @@ class Population:
             genome.total_reward = 1
 
     def evaluate_genome(self, genome, batch_size=config.batch_size, render_mode=None, max_episode_steps=config.max_episode_steps):
-        environments = [gym.make("BipedalWalker-v3", hardcore=True, render_mode=render_mode, max_episode_steps=max_episode_steps, ) for _ in range(batch_size)]
+        environments = [TransformReward(gym.make("BipedalWalker-v3", hardcore=True, render_mode=render_mode, max_episode_steps=max_episode_steps), lambda r: r if r > 0 else 0) for _ in range(batch_size)]
         observations = [environment.reset(seed=self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
 
         if isinstance(observations[0], tuple):
