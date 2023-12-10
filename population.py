@@ -160,8 +160,8 @@ class Population:
         for genome in self.genomes.values():
             genome.total_reward = 1
 
-    def evaluate_genome(self, genome, batch_size=config.batch_size, render_mode=None):
-        environments = [gym.make("LunarLander-v2", render_mode=render_mode, ) for _ in range(batch_size)]
+    def evaluate_genome(self, genome, batch_size=config.batch_size, render_mode=None, max_episode_steps=config.max_episode_steps):
+        environments = [gym.make("BipedalWalker-v3", hardcore=True, render_mode=render_mode, max_episode_steps=max_episode_steps, ) for _ in range(batch_size)]
         observations = [environment.reset(seed=self.generation * config.env_seed + i) for i, environment in enumerate(environments)]
 
         if isinstance(observations[0], tuple):
@@ -182,10 +182,12 @@ class Population:
         total_rewards = [0] * batch_size
 
         while not all(done):
-            output_logits = neural_network.forward_batch(observations_tensor)
-            action_probabilities = F.softmax(output_logits, dim=1)
-            actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
+            #output_logits = neural_network.forward_batch(observations_tensor)
+            #action_probabilities = F.softmax(output_logits, dim=1)
+            #actions = torch.argmax(action_probabilities, dim=1).cpu().numpy()
  
+            actions = neural_network.forward_batch(observations_tensor).cpu().numpy()
+
             new_observations, new_rewards, new_done = [], [], []
             for i, (environment, action) in enumerate(zip(environments, actions)):
                 if not done[i]:
