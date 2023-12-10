@@ -7,7 +7,8 @@ class NeatVisualizer:
         self.fitness_data = []
         self.fig, self.ax = plt.subplots(1, 2, figsize=(12, 6))
 
-    def visualize_genome(self, genome):
+    def visualize_genome(self, genome, fixed_connection_tickness=True, fixed_neuron_size=False, 
+                        default_connection_tickness=0.1, default_neuron_size=100, max_connection_tickness=5, max_neuron_size=600):
         self.ax[0].cla()
         G = nx.DiGraph()
 
@@ -43,22 +44,35 @@ class NeatVisualizer:
                 color = "skyblue" if neuron_gene.layer == "input" else "lightgreen" if neuron_gene.layer == "output" else "lightgrey"
                 G.add_node(neuron_id, color=color, style="filled", shape="circle", activation=neuron_gene.activation)
 
+        # Normalize edge weights for visualization if required
         edge_weights = []
         for _, conn_gene in genome.connection_genes.items():
-            # check if connection gene is enabled and from/to neurons exist
             if not conn_gene.enabled or conn_gene.from_neuron not in G.nodes or conn_gene.to_neuron not in G.nodes:
                 continue
             else:
                 G.add_edge(conn_gene.from_neuron, conn_gene.to_neuron)
-                edge_weights.append(abs(conn_gene.weight))  # use absolute value for visualization
+                edge_weights.append(abs(conn_gene.weight))
 
-        # Normalize edge weights for visualization
-        max_weight = max(edge_weights, default=1)  # Avoid division by zero
-        edge_weights = [w / max_weight * 5 for w in edge_weights]  # Adjust scaling factor as needed
+        if not fixed_connection_tickness:
+            max_weight = max(edge_weights, default=1)  # Avoid division by zero
+            edge_weights = [default_connection_tickness + (w / max_weight) * (max_connection_tickness - default_connection_tickness) for w in edge_weights]
+        else:
+            edge_weights = [default_connection_tickness] * len(edge_weights)
+
+        # Normalize neuron size based on bias if required
+        neuron_sizes = []
+        if not fixed_neuron_size:
+            biases = [neuron_gene.bias for _, neuron_gene in genome.neuron_genes.items() if neuron_gene.enabled]
+            # Add parentheses around the generator expression
+            max_bias = max((abs(bias) for bias in biases), default=1)
+            neuron_sizes = [default_neuron_size + (abs(bias) / max_bias) * (max_neuron_size - default_neuron_size) for bias in biases]
+        else:
+            neuron_sizes = [default_neuron_size] * len(G.nodes)
 
         # Draw the graph
         nx.draw(G, pos, with_labels=False, node_color=[G.nodes[node]["color"] for node in G.nodes],
-                edge_color="black", width=edge_weights, linewidths=1, node_size=500, alpha=0.9, ax=self.ax[0])
+                edge_color="black", width=edge_weights, linewidths=1, node_size=neuron_sizes, alpha=0.9, ax=self.ax[0])
+
 
         # Add labels for activation functions of hidden neurons
         for node, data in G.nodes(data=True):
