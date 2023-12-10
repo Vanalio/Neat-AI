@@ -15,7 +15,6 @@ from config import Config
 
 config = Config("config.ini", "DEFAULT")
 
-
 class Population:
     def __init__(self, initial=False):
         self.genomes = {}
