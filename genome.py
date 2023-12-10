@@ -9,7 +9,6 @@ from config import Config
 
 config = Config("config.ini", "DEFAULT")
 
-
 class Genome:
     def __init__(self):
         self.id = IdManager.get_new_id()
@@ -25,7 +24,7 @@ class Genome:
         self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
         self.add_neurons("hidden", count=config.hidden_neurons, neuron_ids=None)
 
-        initial_connections = int(self.max_total_connections() * config.initial_connections_quota)
+        initial_connections = random.randint(int(self.max_total_connections() * config.min_connections_quota), self.max_total_connections())
         self.add_connections(count=initial_connections)
 
         return self
@@ -42,7 +41,7 @@ class Genome:
         enabled_hidden_neurons = len([n for n in self.neuron_genes.values() if n.layer == "hidden" and n.enabled])
         max_total_connections = (enabled_hidden_neurons * (config.input_neurons + enabled_hidden_neurons + config.output_neurons))
 
-        return max_total_connections
+        return int(max_total_connections)
 
     def max_attempts(self):
         max_attempts = int(self.max_total_connections() * config.max_to_attempts_factor)
@@ -291,7 +290,6 @@ class Genome:
                             else activation_functions.bipolar_functions())
 
         gene_to_mutate.activation = random.choice(available_functions)
-
 
     def mutate_connection_toggle(self):
         gene_to_mutate = random.choice(

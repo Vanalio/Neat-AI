@@ -2,6 +2,7 @@
 
 ## FIXME
 
+- minimum conn coverage
 - refactor from_neuron, to neuron --> from_neuron_id, to_neuron_id
 - move render genome to visualizer, then fix the entire visualizer (included load from file)
 
