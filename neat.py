@@ -40,7 +40,7 @@ def neat():
             random_key = random.choice(list(population.genomes.keys()))
             test_genome = population.genomes[random_key]
         
-        population.evaluate_genome(test_genome, batch_size=1, render_mode="human")
+        population.evaluate_genome(test_genome, batch_size=1, render_mode="human", max_episode_steps=500)
         
         visualizer.visualize_genome(test_genome)
         visualizer.plot_fitness(generation, test_genome.fitness)

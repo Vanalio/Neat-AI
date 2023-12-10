@@ -274,9 +274,24 @@ class Genome:
             layers_to_mutate.append("output")
         if config.mutate_hidden_activations:
             layers_to_mutate.append("hidden")
-        gene_to_mutate = random.choice([gene for gene in self.neuron_genes.values() if gene.layer == random.choice(layers_to_mutate)])
-        available_functions = activation_functions.brain_functions() if gene_to_mutate.layer == "hidden" else activation_functions.bipolar_functions()
+
+        # Check if layers_to_mutate is not empty
+        if not layers_to_mutate:
+            return  # or handle this case appropriately
+
+        # Creating a filtered list of genes
+        filtered_genes = [gene for gene in self.neuron_genes.values() if gene.layer in layers_to_mutate]
+
+        # Check if filtered_genes is not empty
+        if not filtered_genes:
+            return  # or handle this case appropriately
+
+        gene_to_mutate = random.choice(filtered_genes)
+        available_functions = (activation_functions.brain_functions() if gene_to_mutate.layer == "hidden" 
+                            else activation_functions.bipolar_functions())
+
         gene_to_mutate.activation = random.choice(available_functions)
+
 
     def mutate_connection_toggle(self):
         gene_to_mutate = random.choice(
