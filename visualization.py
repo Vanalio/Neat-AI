@@ -8,7 +8,7 @@ class NeatVisualizer:
         self.fig, self.ax = plt.subplots(1, 2, figsize=(12, 6))
 
     def visualize_network(self, genome, fixed_connection_tickness=True, fixed_neuron_size=False, 
-                        default_connection_tickness=0.1, default_neuron_size=100, max_connection_tickness=5, max_neuron_size=600):
+                        default_connection_tickness=0.075, default_neuron_size=50, max_connection_tickness=5, max_neuron_size=500):
         self.ax[0].cla()
         G = nx.DiGraph()
 
@@ -41,7 +41,7 @@ class NeatVisualizer:
         # Add nodes and edges to the graph with modifications
         for neuron_id, neuron_gene in genome.neuron_genes.items():
             if neuron_gene.enabled:
-                color = "skyblue" if neuron_gene.layer == "input" else "lightgreen" if neuron_gene.layer == "output" else "lightgrey"
+                color = "blue" if neuron_gene.layer == "input" else "green" if neuron_gene.layer == "output" else "red"
                 G.add_node(neuron_id, color=color, style="filled", shape="circle", activation=neuron_gene.activation)
 
         # Normalize edge weights for visualization if required
@@ -63,7 +63,6 @@ class NeatVisualizer:
         neuron_sizes = []
         if not fixed_neuron_size:
             biases = [neuron_gene.bias for _, neuron_gene in genome.neuron_genes.items() if neuron_gene.enabled]
-            # Add parentheses around the generator expression
             max_bias = max((abs(bias) for bias in biases), default=1)
             neuron_sizes = [default_neuron_size + (abs(bias) / max_bias) * (max_neuron_size - default_neuron_size) for bias in biases]
         else:
@@ -72,7 +71,6 @@ class NeatVisualizer:
         # Draw the graph
         nx.draw(G, pos, with_labels=False, node_color=[G.nodes[node]["color"] for node in G.nodes],
                 edge_color="black", width=edge_weights, linewidths=1, node_size=neuron_sizes, alpha=0.9, ax=self.ax[0])
-
 
         # Add labels for activation functions of hidden neurons
         for node, data in G.nodes(data=True):
