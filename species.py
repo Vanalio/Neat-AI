@@ -10,6 +10,7 @@ class Species:
         self.representative = None
         self.average_shared_fitness = None
         self.age = 0
+        self.all_time_best_fitness = 0
         self.generations_without_improvement = 0
 
     def cull(self, keep_best_genomes_in_species):

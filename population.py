@@ -5,7 +5,6 @@ import gymnasium as gym
 from gymnasium.wrappers import TransformReward
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 from managers import IdManager
 from genome import Genome
@@ -70,11 +69,13 @@ class Population:
         self.evaluate()
         print("Speciating...")
         self.speciate()
-        print("Sort & Stats...")
-        self.sort_and_stats()
-        self.print_population_info()
+        print("Population assessment...")
+        self.assess()
         print("Pruning...")
         self.prune()
+        self.species_fitness()
+        self.sort_species()
+        self.print_population_info()
         print("Forming next generation...")
         self.form_next_generation()
 
@@ -216,9 +217,16 @@ class Population:
     def relu_offset(self, reward):
         return max(0, reward + config.fitness_offset)
 
-    def sort_and_stats(self):
+    def assess(self):
+        self.sort_genomes_in_species()
+        self.find_elites()
+        self.update_stagnation()
+        self.species_fitness()
+        self.sort_species()
+        self.find_best_genome()
+
+    def sort_genomes_in_species(self):
         for _, species in self.species.items():
-            # if species has at least one genome
             if species.genomes:
                 sorted_genomes = sorted(
                     species.genomes.values(),
@@ -226,14 +234,30 @@ class Population:
                     reverse=True,
                 )
                 species.genomes = {genome.id: genome for genome in sorted_genomes}
-                species.elites = {
-                    genome.id: genome
-                    for genome in sorted_genomes[: config.elites_per_species]
-                }
+
+    def find_elites(self):
+        for _, species in self.species.items():
+            if species.genomes:
+                # Convert dictionary values to a list and take the first 'config.elites_per_species' elements
+                top_elites = list(species.genomes.values())[:config.elites_per_species]
+                species.elites = {genome.id: genome for genome in top_elites}
+
+    def update_stagnation(self):
+        for _, species in self.species.items():
+            if species.genomes:
+                first_elite_genome = next(iter(species.elites.values()))
+                if species.all_time_best_fitness is None or first_elite_genome.fitness > species.all_time_best_fitness:
+                    species.all_time_best_fitness = first_elite_genome.fitness
+                    species.generations_without_improvement = 0
+                else:
+                    species.generations_without_improvement += 1
+
+    def species_fitness(self):
+        for _, species in self.species.items():
+            if species.genomes:
                 species.total_fitness = sum(
                     genome.fitness for genome in species.genomes.values()
                 )
-                #print (f"{len(species.genomes)} genomes in species {species.id}") 
                 species.average_shared_fitness = species.total_fitness / (
                     len(species.genomes) ** 2
                 )
@@ -241,89 +265,31 @@ class Population:
                 species.average_shared_fitness = 0
                 species.total_fitness = 0
 
+    def sort_species(self):
         sorted_species = sorted(
-            self.species.items(),
-            key=lambda item: item[1].average_shared_fitness,
-            reverse=True,
+        self.species.items(),
+        key=lambda item: item[1].average_shared_fitness,
+        reverse=True,
         )
         self.species = {species_id: species for species_id, species in sorted_species}
 
+    def find_best_genome(self):
         self.max_fitness = 0
         self.best_genome = None
-
         for _, genome in self.genomes.items():
             if self.max_fitness is None or genome.fitness > self.max_fitness:
                 self.max_fitness = genome.fitness
                 self.best_genome = genome
         
-        # if best genome exists, save it to file
         if self.best_genome:
             self.best_genome.save_to_file(f"saves/best_genome_{self.generation}.pkl")
 
         return self.best_genome
 
-    def print_population_info(self):
-        for _, species in self.species.items():
-            if species.genomes:
-                
-                species_genomes = len(species.genomes)
-                avg_connections = int(sum([len(genome.connection_genes) for genome in species.genomes.values()]) / species_genomes)
-                avg_neurons = int(sum([len(genome.neuron_genes) for genome in species.genomes.values()]) / species_genomes) - config.input_neurons - config.output_neurons
-                avg_disabled_neurons = int(sum([len([n for n in genome.neuron_genes.values() if not n.enabled]) for genome in species.genomes.values()]) / species_genomes)
-                avg_disabled_connections = int(sum([len([c for c in genome.connection_genes.values() if not c.enabled]) for genome in species.genomes.values()]) / species_genomes)
-                avg_matching_connections = int(sum([genome.matching_connections for genome in species.genomes.values()]) / species_genomes)
-                
-                print(
-                    f"Species: {species.id}, Age: {species.age}", \
-                    f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
-                    f"AVG --> shared fit: {int(species.average_shared_fitness)}, conn: {avg_connections}, (disabled): {avg_disabled_connections}, (match): {avg_matching_connections}, hidden neurons: {avg_neurons}, (disabled): {avg_disabled_neurons}"
-                )
-
-        print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
-
-        if self.best_genome:
-            print(
-                  f"BEST GENOME: {self.best_genome.id}, Fit: {self.max_fitness}, conn: {len(self.best_genome.connection_genes)}, "
-                  f"hid neur: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}, "
-                  f"dis conn: {len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
-                  f"dis neur: {len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
-                 )
-
-            for n in self.best_genome.neuron_genes.values():
-                if n.layer != "input":
-                    print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
-            #for c in self.best_genome.connection_genes.values():
-                #print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
-                
     def prune(self):
-        self.prune_genomes_from_species()
-        self.sort_and_stats()
-        self.prune_stale_species()
-        self.sort_and_stats()
         self.prune_weak_species()
-        self.sort_and_stats()
-
-    def prune_genomes_from_species(self):
-
-        for species_instance in self.species.values():
-
-            species_instance.cull(config.keep_best_genomes_in_species)
-
-    def prune_stale_species(self):
-
-        max_removal_count = len(self.species) - config.min_species
-        removal_count = 0
-        for species_instance in self.species.values():
-            if (
-                species_instance.generations_without_improvement
-                >= config.max_stagnation
-            ):
-                if removal_count < max_removal_count:
-
-                    del self.species[species_instance.id]
-                    removal_count += 1
-                else:
-                    break
+        self.prune_stale_species()
+        self.prune_genomes_from_species()
 
     def prune_weak_species(self):
         max_removal_count = len(self.species) - config.min_species
@@ -335,6 +301,62 @@ class Population:
             original_count = len(self.species)
             cutoff = max(1, int(original_count * config.keep_best_species))
             self.species = dict(list(self.species.items())[:cutoff])
+
+    def prune_stale_species(self):
+        max_removal_count = len(self.species) - config.min_species
+        removal_count = 0
+        species_to_remove = []
+
+        for species_id, species_instance in self.species.items():
+            if species_instance.generations_without_improvement >= config.max_stagnation:
+                if removal_count < max_removal_count:
+                    species_to_remove.append(species_id)
+                    removal_count += 1
+                    print(f"Species {species_instance.id} removed due to stagnation.")
+                else:
+                    break
+
+        # Now remove the species outside the loop
+        for species_id in species_to_remove:
+            del self.species[species_id]
+
+    def prune_genomes_from_species(self):
+
+        for species_instance in self.species.values():
+
+            species_instance.cull(config.keep_best_genomes_in_species)
+
+    def print_population_info(self):
+        for _, species in self.species.items():
+            if species.genomes:
+                
+                species_genomes = len(species.genomes)
+                avg_connections = int(sum([len(genome.connection_genes) for genome in species.genomes.values()]) / species_genomes)
+                avg_neurons = int(sum([len(genome.neuron_genes) for genome in species.genomes.values()]) / species_genomes) - config.input_neurons - config.output_neurons
+                avg_disabled_neurons = int(sum([len([n for n in genome.neuron_genes.values() if not n.enabled]) for genome in species.genomes.values()]) / species_genomes)
+                avg_disabled_connections = int(sum([len([c for c in genome.connection_genes.values() if not c.enabled]) for genome in species.genomes.values()]) / species_genomes)
+                #avg_matching_connections = int(sum([genome.matching_connections for genome in species.genomes.values()]) / species_genomes)
+                
+                print(
+                    f"Species: {species.id}, Age/Stagn: {species.age}/{species.generations_without_improvement}", \
+                    f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
+                    f"shared fit: {int(species.average_shared_fitness)}, conn/dis: {avg_connections}/{avg_disabled_connections}, hid/dis: {avg_neurons}/{avg_disabled_neurons}"
+                )
+
+        print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
+
+        if self.best_genome:
+            print(
+                  f"BEST GENOME: {self.best_genome.id}, Fit: {self.max_fitness}, "
+                  f"conn/dis: {len(self.best_genome.connection_genes)}/{len([c for c in self.best_genome.connection_genes.values() if not c.enabled])}, "
+                  f"hid/dis: {len(self.best_genome.neuron_genes) - config.input_neurons - config.output_neurons}/{len([n for n in self.best_genome.neuron_genes.values() if not n.enabled])}"
+                 )
+
+            for n in self.best_genome.neuron_genes.values():
+                if n.layer != "input":
+                    print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
+            #for c in self.best_genome.connection_genes.values():
+                #print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
 
     def form_next_generation(self):
         next_gen = {}
