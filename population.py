@@ -340,7 +340,8 @@ class Population:
                 print(
                     f"Species: {species.id}, Age/Stagn: {species.age}/{species.generations_without_improvement}", \
                     f"Size: {len(species.genomes)}, Elites: {[e.id for e in species.elites.values()]}", \
-                    f"shared fit: {int(species.average_shared_fitness)}, conn/dis: {avg_connections}/{avg_disabled_connections}, hid/dis: {avg_neurons}/{avg_disabled_neurons}"
+                    f"shared/best fit: {int(species.average_shared_fitness)}/{int(species.all_time_best_fitness)}, ", \
+                    f"conn/dis: {avg_connections}/{avg_disabled_connections}, hid/dis: {avg_neurons}/{avg_disabled_neurons}"
                 )
 
         print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")

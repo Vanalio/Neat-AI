@@ -10,7 +10,6 @@
 - progress bars
 - use __str__
 - add connections can select a "from layer to layer" pair already full when an other "from layer to layer" pair is not
-- implement generations without improvement
 - implement interspecies mating
 
 ## CHECK
