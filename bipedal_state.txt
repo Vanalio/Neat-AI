@@ -1,0 +1,24 @@
+00 (-3.1415927, 3.1415927): hull angle
+01 (-5.0, 5.0)            : hull angular velocity
+02 (-5.0, 5.0)            : x velocity
+03 (-5.0, 5.0)            : y velocity
+04 (-3.1415927, 3.1415927): joint 0 angle
+05 (-5.0, 5.0)            : joint 0 speed
+06 (-3.1415927, 3.1415927): joint 1 angle
+07 (-5.0, 5.0)            : joint 1 speed
+08 (-0.0, 5.0)            : leg 1 contact
+09 (-3.1415927, 3.1415927): joint 2 angle
+10 (-5.0, 5.0)            : joint 2 speed
+11 (-3.1415927, 3.1415927): joint 3 angle
+12 (-5.0, 5.0)            : joint 3 speed
+13 (-0.0, 5.0)            : leg 2 contact
+14 (-1.0, 1.0)            : lidar 0
+15 (-1.0, 1.0)            : lidar 1
+16 (-1.0, 1.0)            : lidar 2
+17 (-1.0, 1.0)            : lidar 3
+18 (-1.0, 1.0)            : lidar 4
+19 (-1.0, 1.0)            : lidar 5
+20 (-1.0, 1.0)            : lidar 6
+21 (-1.0, 1.0)            : lidar 7
+22 (-1.0, 1.0)            : lidar 8
+23 (-1.0, 1.0)            : lidar 9
