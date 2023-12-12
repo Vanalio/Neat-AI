@@ -9,7 +9,7 @@ config = Config("config.ini", "DEFAULT")
 class ActivationFunctions:
     @staticmethod
     def brain_functions():
-        return ["brain_relu", "brain_sigmoid", "brain_tanh", "brain_softsign", "brain_arctan"]
+        return ["brain_relu", "brain_tanh", "brain_softsign", "multi_brain_relu", "multi_brain_tanh", "multi_brain_softsign"]
 
     @staticmethod
     def bipolar_functions():
@@ -34,6 +34,36 @@ class ActivationFunctions:
     @staticmethod
     def brain_arctan(x):
         return torch.where(x >= 0, 2 * (torch.atan(x) / torch.tensor(np.pi)), torch.zeros_like(x))
+
+    @staticmethod
+    def multi_brain_sigmoid(x):
+        return torch.where(x > 5, torch.zeros_like(x),
+                           torch.where(x > 1, ActivationFunctions.brain_sigmoid(x - 3),
+                                       ActivationFunctions.brain_sigmoid(x)))
+
+    @staticmethod
+    def multi_brain_relu(x, relu_clip_at=config.relu_clip_at):
+        return torch.where(x > 5, torch.zeros_like(x),
+                           torch.where(x > 1, ActivationFunctions.brain_relu(x - 3, relu_clip_at),
+                                       ActivationFunctions.brain_relu(x, relu_clip_at)))
+
+    @staticmethod
+    def multi_brain_tanh(x):
+        return torch.where(x > 5, torch.zeros_like(x),
+                           torch.where(x > 1, ActivationFunctions.brain_tanh(x - 3),
+                                       ActivationFunctions.brain_tanh(x)))
+
+    @staticmethod
+    def multi_brain_softsign(x):
+        return torch.where(x > 5, torch.zeros_like(x),
+                           torch.where(x > 1, ActivationFunctions.brain_softsign(x - 3),
+                                       ActivationFunctions.brain_softsign(x)))
+
+    @staticmethod
+    def multi_brain_arctan(x):
+        return torch.where(x > 5, torch.zeros_like(x),
+                           torch.where(x > 1, ActivationFunctions.brain_arctan(x - 3),
+                                       ActivationFunctions.brain_arctan(x)))
 
     @staticmethod
     def relu(x):
