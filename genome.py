@@ -315,8 +315,8 @@ class Genome:
             #print(
             #    f"Toggled neuron {gene_to_mutate.id} in genome {self.id} to {gene_to_mutate.enabled}"
             #)
-        else:
-            print(f"No other enabled hidden neurons to toggle in genome {self.id}")
+        #else:
+            #print(f"No other enabled hidden neurons to toggle in genome {self.id}")
 
     def copy(self, keep_id=True, keep_innovation=True):
         new_genome = Genome()
