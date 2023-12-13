@@ -303,20 +303,20 @@ class Population:
             self.species = dict(list(self.species.items())[:cutoff])
 
     def prune_stale_species(self):
-        max_removal_count = len(self.species) - config.min_species
         removal_count = 0
         species_to_remove = []
 
         for species_id, species_instance in self.species.items():
             if species_instance.generations_without_improvement >= config.max_stagnation:
-                if removal_count < max_removal_count:
+                # Check if removing this species would still keep the total above or equal to min_species
+                if len(self.species) - removal_count > config.min_species:
                     species_to_remove.append(species_id)
                     removal_count += 1
                     print(f"Species {species_instance.id} removed due to stagnation.")
                 else:
-                    break
+                    break  # Stop if further removal would reduce total count below min_species
 
-        # Now remove the species outside the loop
+        # Remove the identified species outside the loop
         for species_id in species_to_remove:
             del self.species[species_id]
 
@@ -355,9 +355,9 @@ class Population:
 
             for n in self.best_genome.neuron_genes.values():
                 if n.layer != "input":
-                    print(f"neuron id {n.id}: {n.activation}, bias {n.bias}")
-            #for c in self.best_genome.connection_genes.values():
-                #print(f"connection {c.innovation}: from {c.from_neuron} to {c.to_neuron}, weight {c.weight}")
+                    # print id activation and bias of enabled neurons not in input layer
+                    if n.enabled and n.layer != "input":
+                        print(f"Neuron {n.id}: {n.activation}, {n.bias}")
 
     def form_next_generation(self):
         next_gen = {}
