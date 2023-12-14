@@ -7,6 +7,7 @@
 
 ## ADD
 
+- stabilizer for all speciation
 - progress bars
 - use __str__
 - add connections can select a "from layer to layer" pair already full when an other "from layer to layer" pair is not
