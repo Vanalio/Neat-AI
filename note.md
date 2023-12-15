@@ -5,6 +5,7 @@
 - speciation is broken
 - move render genome to visualizer, then fix the entire visualizer (included load from file)
 - gpu is slower
+- use list instead of dict where id and not entire object
 
 ## IMPROVE
 
