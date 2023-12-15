@@ -49,15 +49,19 @@ class Population:
         stabilizing = 0
         tries = 0
 
-        while not stabilized and len(self.species) != config.target_species and tries < config.init_species_max_tries:
-            self.speciate()
+        while not stabilized \
+              and len([s for s in self.species.values() if s.genomes]) != config.target_species \
+              and tries < config.speciation_max_tries:
+            
             self.remove_empty_species()
+            self.speciate()
+
             tries += 1
-            print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
+            print(f"Not empty species: {len([s for s in self.species.values() if s.genomes])}, distance set to: {config.distance_threshold}")
 
             if len(self.species) == previous_species_count:
                 stabilizing += 1
-                stabilized = stabilizing >= config.init_species_stabilization
+                stabilized = stabilizing >= config.species_stabilization
             else:
                 stabilizing = 0
                 stabilized = False
@@ -68,7 +72,7 @@ class Population:
         print("Evaluation...")
         self.evaluate()
         print("Speciating...")
-        self.speciate()
+        self.new_speciation()
         print("Population assessment...")
         self.assess()
         print("Pruning...")
@@ -78,6 +82,20 @@ class Population:
         self.print_population_info()
         print("Forming next generation...")
         self.form_next_generation()
+        
+    def new_speciation(self):
+        tries = 0
+
+        while not (
+                  config.target_species / config.target_species_tolerance < 
+                  len([s for s in self.species.values() if s.genomes]) < 
+                  config.target_species * config.target_species_tolerance
+                  ) \
+              and tries < config.speciation_max_tries:
+
+            self.speciate()
+            tries += 1
+            print(f"Not empty species: {len([s for s in self.species.values() if s.genomes])}, distance set to: {config.distance_threshold}")
 
     def speciate(self):
         def find_species_for_genome(genome):
@@ -104,7 +122,7 @@ class Population:
                 new_species.add_genome(genome)
                 genome.matching_connections = len(genome.connection_genes)
 
-        non_empty_species = len([s for s in self.species.values() if s.genomes or s.elites])
+        non_empty_species = len([s for s in self.species.values() if s.genomes])
         species_ratio = non_empty_species / config.target_species
 
         adjustment_factor = (
@@ -119,9 +137,7 @@ class Population:
         species_to_remove = []
         for species_instance in self.species.values():
             if not species_instance.genomes:
-                # append species id to list of species to remove
                 species_to_remove.append(species_instance.id)
-        # remove species from population
         for species_id in species_to_remove:
             del self.species[species_id] 
 
@@ -321,10 +337,11 @@ class Population:
             del self.species[species_id]
 
     def prune_genomes_from_species(self):
-
         for species_instance in self.species.values():
 
+            #print(f"Species {species_instance.id} has {len(species_instance.genomes)} genomes.")
             species_instance.cull(config.keep_best_genomes_in_species)
+            #print(f"Species {species_instance.id} has {len(species_instance.genomes)} genomes after culling.")
 
     def print_population_info(self):
         for _, species in self.species.items():
@@ -344,7 +361,7 @@ class Population:
                     f"conn/dis: {avg_connections}/{avg_disabled_connections}, hid/dis: {avg_neurons}/{avg_disabled_neurons}"
                 )
 
-        print(f"Not empty species: {len([s for s in self.species.values() if s.genomes or s.elites])}, distance set to: {config.distance_threshold}")
+        print(f"Not empty species: {len([s for s in self.species.values() if s.genomes])}, distance set to: {config.distance_threshold}")
 
         if self.best_genome:
             print(
