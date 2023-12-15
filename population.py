@@ -53,7 +53,7 @@ class Population:
               and len([s for s in self.species.values() if s.genomes]) != config.target_species \
               and tries < config.speciation_max_tries:
             
-            self.remove_empty_species()
+            self.remove_empty_species() # WHY?
             self.speciate()
 
             tries += 1
@@ -68,21 +68,6 @@ class Population:
 
             previous_species_count = len(self.species)
 
-    def evolve(self):
-        print("Evaluation...")
-        self.evaluate()
-        print("Speciating...")
-        self.new_speciation()
-        print("Population assessment...")
-        self.assess()
-        print("Pruning...")
-        self.prune()
-        self.species_fitness()
-        self.sort_species()
-        self.print_population_info()
-        print("Forming next generation...")
-        self.form_next_generation()
-        
     def new_speciation(self):
         tries = 0
 
@@ -105,8 +90,7 @@ class Population:
                     return species_instance, matching_connections
             return None, None
 
-        # Clear all genomes including elites from all species,
-        # but keep representatives
+        # WHY?
         for species_instance in self.species.values():
             species_instance.genomes = {}
             species_instance.elites = {}
@@ -141,6 +125,21 @@ class Population:
         for species_id in species_to_remove:
             del self.species[species_id] 
 
+    def evolve(self):
+        print("Evaluation...")
+        self.evaluate()
+        print("Speciating...")
+        self.new_speciation()
+        print("Population assessment...")
+        self.assess()
+        print("Pruning...")
+        self.prune()
+        self.species_fitness()
+        self.sort_species()
+        self.print_population_info()
+        print("Forming next generation...")
+        self.form_next_generation()
+ 
     def evaluate(self):
         if config.run_mode == "parallel":
             self.evaluate_parallel()
