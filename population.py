@@ -61,7 +61,7 @@ class Population:
 
             if len(self.species) == previous_species_count:
                 stabilizing += 1
-                stabilized = stabilizing >= config.species_stabilization
+                stabilized = stabilizing >= config.speciation_stabilization
             else:
                 stabilizing = 0
                 stabilized = False
