@@ -22,7 +22,7 @@ class Genome:
     def create(self, input_ids, output_ids):
         self.add_neurons("input", count=len(input_ids), neuron_ids=input_ids)
         self.add_neurons("output", count=len(output_ids), neuron_ids=output_ids)
-        self.add_neurons("hidden", count=config.hidden_neurons, neuron_ids=None)
+        self.add_neurons("hidden", count=config.initial_hidden_neurons, neuron_ids=None)
 
         initial_connections = random.randint(int(self.max_total_connections() * config.min_connections_quota), self.max_total_connections())
         self.add_connections(count=initial_connections)

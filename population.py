@@ -34,7 +34,7 @@ class Population:
         print(" # Initial population neurons:")
         print(" # INPUT:", len(self.input_ids), self.input_ids)
         print(" # OUTPUT:", len(self.output_ids), self.output_ids)
-        print(" # HIDDEN:", config.hidden_neurons, "\n #############################################\n")
+        print(" # HIDDEN:", config.initial_hidden_neurons, "\n #############################################\n")
 
     def _initial_population(self):
         for _ in range(config.population_size):
