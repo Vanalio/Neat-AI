@@ -33,6 +33,7 @@ class NeuronGene:
         new_gene.id = (self.id if keep_id else new_gene.id)
 
         return new_gene
+
 class ConnectionGene:
     def __init__(self, from_neuron, to_neuron, connection_innovation=None):
         self.innovation = connection_innovation if connection_innovation is not None else InnovationManager.get_new_innovation()
