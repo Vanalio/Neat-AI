@@ -13,10 +13,11 @@ transform = transforms.Compose([
 
 # Download and load the training data
 trainset = datasets.CIFAR10(root='./data', download=True, train=True, transform=transform)
-trainloader = DataLoader(trainset, batch_size=27, shuffle=True)
+trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
 
 # Check for CUDA and set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 print(f"Using device: {device}")
 input("Press Enter to continue...")
 
@@ -112,7 +113,7 @@ net = ModifiedArbitraryDimNet().to(device)
 optimizer = optim.Adam(net.parameters())
 
 # Set the grid size
-grid_size = 3  # approx. cubic root of batch size
+grid_size = 4  # approx. cubic root of batch size
 print_interval = 1  # How often to print the parameter summary
 
 # Training loop
