@@ -113,11 +113,11 @@ optimizer = optim.Adam(net.parameters())
 
 # Set the grid size
 grid_size = 7  # approx. cubic root of batch size
-print_interval = 5  # How often to print the parameter summary
+print_interval = 1  # How often to print the parameter summary
 
 # Training loop
 for epoch in range(3000):
-    for images in trainloader:
+    for images, _ in trainloader:
         images = images.to(device) # Move data to GPU
 
         # Forward pass
