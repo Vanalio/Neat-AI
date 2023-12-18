@@ -1,6 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+# Define transformations
+transform = transforms.Compose([
+    #transforms.Resize((512, 512)),  # Resize to input dimensions
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalizing the images
+])
+
+# Download and load the training data
+trainset = datasets.CIFAR10(root='./data', download=True, train=True, transform=transform)
+trainloader = DataLoader(trainset, batch_size=512, shuffle=True)
 
 # Check for CUDA and set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -104,23 +117,22 @@ print_interval = 5  # How often to print the parameter summary
 
 # Training loop
 for epoch in range(3000):
-    input_tensor = torch.rand(256, 512, 512, 3).to(device)
+    for images in trainloader:
+        images = images.to(device) # Move data to GPU
 
-    # Forward pass
-    output = net(input_tensor)
+        # Forward pass
+        output = net(images)
 
-    # Compute grid-based loss
-    loss = grid_based_loss(output, grid_size)
+        # Calculate loss
+        loss = grid_based_loss(output, grid_size)
 
-    # Backward pass and optimization
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+        # Backward pass and optimization
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
     # Print loss, parameter summary, and gradient norms at specified intervals
     if epoch % print_interval == 0:
         print(f"Epoch {epoch} - Loss: {loss.item()}")
         print_parameter_summary(net)
         print_gradient_norms(net)
-        print(f"Output mean: {output.mean().item()}, std: {output.std().item()}")
-
