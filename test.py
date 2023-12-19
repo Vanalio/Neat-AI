@@ -63,27 +63,28 @@ class Net(nn.Module):
 def grid_based_loss(output, grid_size):
     # Scale output coordinates to sub-box indices
     sub_box_indices = (output * (grid_size - 1)).clamp(0, grid_size - 1)
+    print(f"Sub-box indices size: {sub_box_indices.size()}")
+    print(f"Sub-box indices: {sub_box_indices}")
 
     # Calculate expected points per sub-box for a uniform distribution
+    print(f"Output size: {output.size()}")
     expected_per_box = output.size(0) / (grid_size ** 3)
+    print(f"Expected points per sub-box: {expected_per_box}")
 
     # Create a tensor to hold sub-box counts
     sub_box_counts = torch.zeros((grid_size, grid_size, grid_size), device=output.device, dtype=torch.double)
+    print(f"Sub-box counts size: {sub_box_counts.size()}")
 
-    # Soft assignment to sub-boxes (differentiable)
-    for i in range(sub_box_indices.size(0)):
-        # Find nearest neighbors in the grid and assign softly
-        neighbors = torch.floor(sub_box_indices[i]).long()
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                for dz in range(-1, 2):
-                    neighbor = neighbors + torch.tensor([dx, dy, dz], device=output.device, dtype=torch.long)  # Cast to long
-                    if torch.all(neighbor >= 0) and torch.all(neighbor < grid_size):
-                        # Soft assignment based on distance
-                        distance = torch.norm(sub_box_indices[i] - neighbor.float()).double()
-                        weight = 1 / (distance + 1e-6)
-                        sub_box_counts[tuple(neighbor.tolist())] += weight  # Convert to list for indexing
+    # write a differentiable loss function that encourages the network to distribute the points uniformly across the sub-boxes
+    # Loop through each output point
+    for i in range(output.size(0)):
+        # Round down to get sub-box index (integer value)
+        sub_box_index = torch.floor(sub_box_indices[i]).long()
+        print(f"Sub-box index: {sub_box_index}")
 
+        # Increment the corresponding sub-box count
+        sub_box_counts[sub_box_index[0], sub_box_index[1], sub_box_index[2]] += 1
+        print(f"Sub-box counts: {sub_box_counts}")
 
     # Calculate the loss
     excess_counts = torch.where(sub_box_counts > expected_per_box, 
@@ -148,7 +149,10 @@ def visualize_images(images):
     plt.show()
 
 # Set the grid size
-grid_size = 4  # half cubic root of batch size
+grid_size = 2  # half cubic root of batch size
+print(f"Grid size: {grid_size}")
+print(f"Batch size: {(2*grid_size)**3}")
+
 net_magnitude = 9
 
 
@@ -163,15 +167,15 @@ optimizer = optim.Adam(net.parameters())
 print_interval = 1  # How often to print the parameter summary
 
 # Training loop
-for epoch in range(3):
+for epoch in range(2):
     print(f"Starting epoch {epoch}:")
     for images, _ in trainloader:
         images = images.to(device).double()  # Move data to GPU and cast to double
 
         # Forward pass
-        print("Forward pass")
+        #print("Forward pass")
         output = net(images)
-        print("Forwarded output")
+        #print("Forwarded output")
 
         # Calculate loss
         print("Calculating loss")
@@ -179,16 +183,16 @@ for epoch in range(3):
         print(f"Loss: {loss.item()}")
 
         # Backward pass and optimization
-        print("Backward pass")
-        print("Zeroing gradients")
+        #print("Backward pass")
+        #print("Zeroing gradients")
         optimizer.zero_grad()
-        print("Zeroed gradients")
-        print("Backwarding loss")
+        #print("Zeroed gradients")
+        #print("Backwarding loss")
         loss.backward()
-        print("Backwarded loss")
-        print("Stepping optimizer")
+        #print("Backwarded loss")
+        #print("Stepping optimizer")
         optimizer.step()
-        print("Stepped optimizer")
+        #print("Stepped optimizer")
 
     # Print loss, parameter summary, and gradient norms at specified intervals
     if epoch % print_interval == 0:
