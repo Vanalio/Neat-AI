@@ -60,39 +60,8 @@ class Net(nn.Module):
 
         return x
 
-def grid_based_loss(output, grid_size):
-    # Scale output coordinates to sub-box indices
-    sub_box_indices = (output * (grid_size - 1)).clamp(0, grid_size - 1)
-    print(f"Sub-box indices size: {sub_box_indices.size()}")
-    print(f"Sub-box indices: {sub_box_indices}")
-
-    # Calculate expected points per sub-box for a uniform distribution
-    print(f"Output size: {output.size()}")
-    expected_per_box = output.size(0) / (grid_size ** 3)
-    print(f"Expected points per sub-box: {expected_per_box}")
-
-    # Create a tensor to hold sub-box counts
-    sub_box_counts = torch.zeros((grid_size, grid_size, grid_size), device=output.device, dtype=torch.double)
-    print(f"Sub-box counts size: {sub_box_counts.size()}")
-
-    # write a differentiable loss function that encourages the network to distribute the points uniformly across the sub-boxes
-    # Loop through each output point
-    for i in range(output.size(0)):
-        # Round down to get sub-box index (integer value)
-        sub_box_index = torch.floor(sub_box_indices[i]).long()
-        print(f"Sub-box index: {sub_box_index}")
-
-        # Increment the corresponding sub-box count
-        sub_box_counts[sub_box_index[0], sub_box_index[1], sub_box_index[2]] += 1
-        print(f"Sub-box counts: {sub_box_counts}")
-
-    # Calculate the loss
-    excess_counts = torch.where(sub_box_counts > expected_per_box, 
-                                sub_box_counts - expected_per_box, 
-                                torch.zeros_like(sub_box_counts))
-    loss = torch.sum(excess_counts ** 2)
-
-    return loss
+def loss(output):
+    ...
 
 def print_parameter_summary(model):
     print("Parameter Summary:")
@@ -110,15 +79,6 @@ def print_gradient_norms(model):
             print(f"{name} - Grad Norm: {param_norm.item()}")
     total_norm = total_norm ** 0.5
     print(f"Total Norm: {total_norm}")
-
-def determine_subcube_assignments(output, grid_size):
-    # Scale output coordinates to sub-box indices
-    sub_box_indices = (output * (grid_size - 1)).clamp(0, grid_size - 1)
-
-    # Round down to get subcube index (integer value)
-    sub_box_indices = torch.floor(sub_box_indices).long()
-
-    return sub_box_indices
 
 def visualize_images(images):
     # Number of images
@@ -149,16 +109,14 @@ def visualize_images(images):
     plt.show()
 
 # Set the grid size
-grid_size = 2  # half cubic root of batch size
-print(f"Grid size: {grid_size}")
-print(f"Batch size: {(2*grid_size)**3}")
+batch_size = 64
+print(f"Batch size: {batch_size}")
 
 net_magnitude = 9
 
-
 # Download and load the training data
 trainset = datasets.CIFAR10(root='./data', download=True, train=True, transform=transform)
-trainloader = DataLoader(trainset, batch_size=(2*grid_size)**3, shuffle=True)
+trainloader = DataLoader(trainset, batch_size=grid_size**3, shuffle=True)
 
 net = Net().to(device).double()  # Cast to double
 
@@ -175,6 +133,8 @@ for epoch in range(2):
         # Forward pass
         #print("Forward pass")
         output = net(images)
+        print(f"Output size: {output.size()}")
+        print(f"Output first 3 items: {output[:3]}")
         #print("Forwarded output")
 
         # Calculate loss
@@ -203,6 +163,7 @@ for epoch in range(2):
 # Save the entire model
 torch.save(net, 'model.pth')
 
+'''
 # Load the entire model
 model = torch.load('model.pth')
 
@@ -229,3 +190,4 @@ selected_images = images[subcube_assignments == selected_subcube]
 # Visualization code (using matplotlib or similar)
 # You need to implement visualize_images()
 visualize_images(selected_images.cpu())
+'''
