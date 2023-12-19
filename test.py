@@ -190,7 +190,7 @@ for epoch in range(epochs):
         print_parameter_summary(net)
         print_gradient_norms(net)
     
-    torch.save(net, 'model.pth')
+    torch.save(net, 'data/model.pth')
 
 plt.ioff()  # Interactive mode off
 plt.show()  # Keep the plot open
