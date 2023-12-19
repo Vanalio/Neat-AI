@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 transform = transforms.Compose([
     #transforms.Resize((512, 512)),  # Resize to input dimensions
     transforms.ToTensor(),
+    transforms.Lambda(lambda x: x.type(torch.double)),  # Cast to double
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalizing the images
 ])
 
@@ -18,15 +19,16 @@ trainloader = DataLoader(trainset, batch_size=64, shuffle=True)
 # Check for CUDA and set device
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
+
 print(f"Using device: {device}")
 input("Press Enter to continue...")
 
 def clipped_relu(x):
     return torch.clamp(x, min=0, max=1)
 
-class ModifiedArbitraryDimNet(nn.Module):
+class Net(nn.Module):
     def __init__(self):
-        super(ModifiedArbitraryDimNet, self).__init__()
+        super(Net, self).__init__()
         # Initialize a placeholder for the first layer
         self.first_layer = None
 
@@ -46,7 +48,7 @@ class ModifiedArbitraryDimNet(nn.Module):
         # Dynamically create and initialize the first layer based on input size
         if self.first_layer is None:
             num_features = x.size(1)
-            self.first_layer = nn.Linear(in_features=num_features, out_features=3**5).to(device)
+            self.first_layer = nn.Linear(in_features=num_features, out_features=3**5).to(device).double()
             nn.init.normal_(self.first_layer.weight, mean=0, std=1 / num_features ** 0.5)  # LeCun initialization
             nn.init.constant_(self.first_layer.bias, 0.1)  # Initialize biases to 0.1
 
@@ -68,7 +70,7 @@ def grid_based_loss(output, grid_size):
     expected_per_box = output.size(0) / (grid_size ** 3)
 
     # Create a tensor to hold sub-box counts
-    sub_box_counts = torch.zeros((grid_size, grid_size, grid_size), device=output.device)
+    sub_box_counts = torch.zeros((grid_size, grid_size, grid_size), device=output.device, dtype=torch.double)
 
     # Soft assignment to sub-boxes (differentiable)
     for i in range(sub_box_indices.size(0)):
@@ -77,10 +79,10 @@ def grid_based_loss(output, grid_size):
         for dx in range(-1, 2):
             for dy in range(-1, 2):
                 for dz in range(-1, 2):
-                    neighbor = neighbors + torch.tensor([dx, dy, dz], device=output.device)
+                    neighbor = neighbors + torch.tensor([dx, dy, dz], device=output.device, dtype=torch.double)
                     if torch.all(neighbor >= 0) and torch.all(neighbor < grid_size):
                         # Soft assignment based on distance
-                        distance = torch.norm(sub_box_indices[i] - neighbor.float())
+                        distance = torch.norm(sub_box_indices[i] - neighbor.float()).double()
                         weight = 1 / (distance + 1e-6)
                         sub_box_counts[tuple(neighbor)] += weight
 
@@ -109,7 +111,7 @@ def print_gradient_norms(model):
     total_norm = total_norm ** 0.5
     print(f"Total Norm: {total_norm}")
 
-net = ModifiedArbitraryDimNet().to(device)
+net = Net().to(device).double()  # Cast to double
 optimizer = optim.Adam(net.parameters())
 
 # Set the grid size
@@ -120,7 +122,7 @@ print_interval = 1  # How often to print the parameter summary
 for epoch in range(3000):
     print(f"Starting epoch {epoch}:")
     for images, _ in trainloader:
-        images = images.to(device) # Move data to GPU
+        images = images.to(device).double()  # Move data to GPU and cast to double
 
         # Forward pass
         output = net(images)
