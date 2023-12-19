@@ -90,7 +90,7 @@ print(f"Using device: {device}")
 input("Press Enter to continue...")
 
 epochs = 50
-batch_size = 600
+batch_size = 6000
 print(f"Batch size: {batch_size}")
 net_magnitude = 9
 
