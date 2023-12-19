@@ -5,6 +5,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
+import random
 
 # Define transformations
 transform = transforms.Compose([
