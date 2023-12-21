@@ -19,8 +19,8 @@ class Net(nn.Module):
         layer_sizes = [3**i for i in range(net_magnitude, 0, -1)]
         for i in range(len(layer_sizes) - 1):
             layer = nn.Linear(in_features=layer_sizes[i], out_features=layer_sizes[i + 1])
-            nn.init.normal_(layer.weight, mean=0, std=np.sqrt(0.01 / layer_sizes[i]))
-            nn.init.constant_(layer.bias, 0.1)  # Initialize biases to 0.1
+            nn.init.normal_(layer.weight, mean=0, std=np.sqrt(1 / layer_sizes[i]))
+            nn.init.constant_(layer.bias, 0.0)  # Initialize biases to 0
             self.layers.append(layer)
 
     def forward(self, x):
@@ -31,17 +31,18 @@ class Net(nn.Module):
         if self.first_layer is None:
             num_features = x.size(1)
             self.first_layer = nn.Linear(in_features=num_features, out_features=3**net_magnitude).to(device).double()
-            nn.init.normal_(self.first_layer.weight, mean=0, std=np.sqrt(0.01 / num_features))
-            nn.init.constant_(self.first_layer.bias, 0.1)  # Initialize biases to 0.1
+            nn.init.normal_(self.first_layer.weight, mean=0, std=np.sqrt(1 / num_features))
+            nn.init.constant_(self.first_layer.bias, 0.0)  # Initialize biases to 0
 
-        # Apply the first layer with clipped ReLU
-        x = clipped_relu(self.first_layer(x))
+        x = torch.nn.functional.tanh(self.first_layer(x))
 
-        # Iterate over all layers and apply them with clipped ReLU
         for layer in self.layers:
-            x = clipped_relu(layer(x))
+            x = torch.nn.functional.tanh(layer(x))
 
-        return x
+        norm = torch.norm(x, p=2, dim=1, keepdim=True)
+        x_normalized = x / norm  # L2 normalization
+
+        return x_normalized
 
 
 def clipped_relu(x):
@@ -66,11 +67,11 @@ def repulsion_loss(outputs):
     return repulsion.sum() / len(outputs)
 
 
-def ciftci_loss(net, x, epsilon=0.01):
+def ciftci_loss(net, x, epsilon=0.001):
     x_perturbed = perturb_data(x, epsilon)
     output_original = net(x)
     output_perturbed = net(x_perturbed)
-    loss = -torch.norm(output_original - output_perturbed, p=2, dim=1).pow(2).mean()
+    loss = torch.norm(output_original - output_perturbed, p=2, dim=1).pow(2).mean()
     return loss
 
 
@@ -112,9 +113,9 @@ print(f"Using device: {device}")
 input("Press Enter to continue...")
 
 epochs = 50
-batch_size = 3000
+batch_size = 10000
 print(f"Batch size: {batch_size}")
-net_magnitude = 9
+net_magnitude = 5
 
 print_interval = 1
 
@@ -231,7 +232,7 @@ if user_input == 'yes':
             optimizer.step()
 
             # Update loss plot
-            loss_values.append(loss_value)
+            loss_values.append(loss_value.item())
             line.set_xdata(range(len(loss_values)))
             line.set_ydata(loss_values)
             ax2.relim()  # Recalculate limits
